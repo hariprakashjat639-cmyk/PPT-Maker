@@ -35,11 +35,12 @@ text = ""
 if uploaded_file is not None:
     if uploaded_file.name.lower().endswith(".pdf"):
         try:
-            pdf_reader = pypdf.PdfReader(uploaded_file)
-            for page in pdf_reader.pages:
-                extracted_text = page.extract_text()
-                if extracted_text:
-                    text += extracted_text + "\n"
+            with st.spinner("बड़ी PDF फाइल पढ़ी जा रही है, कृपया थोड़ा इंतज़ार करें..."):
+                pdf_reader = pypdf.PdfReader(uploaded_file)
+                for page in pdf_reader.pages:
+                    extracted_text = page.extract_text()
+                    if extracted_text:
+                        text += extracted_text + "\n"
         except Exception as e:
             st.error(f"PDF फाइल पढ़ने में समस्या आई: {e}")
     else:
@@ -52,17 +53,21 @@ if uploaded_file is not None:
         except Exception as e:
             st.error(f"Text फाइल पढ़ने में समस्या आई: {e}")
 
+    # चेक करें कि टेक्स्ट मिला या नहीं
+    if text.strip():
+        st.success(f"फाइल सफलतापूर्वक पढ़ ली गई है! (कुल अक्षर: {len(text)})")
+    else:
+        st.warning("⚠️ चेतावनी: इस PDF से कोई टेक्स्ट नहीं मिल पाया। हो सकता है यह स्कैन की गई इमेज (Image-based PDF) हो। कृपया ऐसी PDF अपलोड करें जिसमें टेक्स्ट को सेलेक्ट किया जा सके।")
+
 # अगर टेक्स्ट मौजूद है तो PPT जनरेट करने का बटन दिखाएं
-if text:
-    st.success("फाइल सफलतापूर्वक पढ़ ली गई है!")
-    
+if text.strip():
     if st.button("PPT Generate Karein"):
         prs = Presentation()
         
         # स्लाइड का साइज सेट करना (20:9 के लिए खास डाइमेंशन)
         if slide_format == "20:9 (Cinematic)":
             prs.slide_width = Inches(13.333)
-            prs.slide_height = Inches(6.0) # 20:9 आस्पेक्ट रेश्यो
+            prs.slide_height = Inches(6.0)
         elif slide_format == "16:9 (Widescreen)":
             prs.slide_width = Inches(13.333)
             prs.slide_height = Inches(7.5)
@@ -85,14 +90,14 @@ if text:
         # टेक्स्ट को लाइनों में तोड़कर अलग पैराग्राफ बनाना ताकि टेक्स्ट आपस में न मिले
         lines = [line.strip() for line in text.split('\n') if line.strip()]
         
-        for i, line_text in enumerate(lines[:40]):
+        for i, line_text in enumerate(lines[:100]): # अधिक लाइनों के समर्थन के लिए सीमा बढ़ाई गई
             if i == 0:
                 p = tf.paragraphs[0]
             else:
                 p = tf.add_paragraph()
             p.text = line_text
             p.font.size = Pt(14)
-            p.space_after = Pt(10) # टेक्स्ट को आपस में मिलने से रोकने के लिए पर्याप्त गैप
+            p.space_after = Pt(10)
         
         # फाइल सेव करने के लिए बफर
         ppt_buffer = io.BytesIO()
