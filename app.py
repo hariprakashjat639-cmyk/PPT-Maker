@@ -7,6 +7,12 @@ from pptx.enum.shapes import MSO_SHAPE
 import io
 
 st.set_page_config(page_title="Model Paper PPT Maker", page_icon="📊", layout="centered")
+# GitHub आइकॉन छुपाने के लिए
+st.markdown("""
+    <style>
+    [data-testid="stHeader"] {display: none;}
+    </style>
+""", unsafe_allow_html=True)
 
 st.title("📊 Bilingual Text to PPT Converter App")
 st.write("Apni Text (`.txt`) file yahan upload karein aur bilkul tayar format wali PPT download karein.")
