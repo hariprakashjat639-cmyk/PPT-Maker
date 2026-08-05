@@ -5,7 +5,7 @@ from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 import io
-
+import pypdf
 st.set_page_config(page_title="Model Paper PPT Maker", page_icon="📊", layout="centered")
 # GitHub आइकॉन छुपाने के लिए
 st.markdown("""
@@ -17,7 +17,21 @@ st.markdown("""
 st.title("📊 Bilingual Text to PPT Converter App")
 st.write("Apni Text (`.txt`) file yahan upload karein aur bilkul tayar format wali PPT download karein.")
 
-uploaded_file = st.file_uploader("Text File (.txt) Upload Karein", type=["txt"])
+# फाइल अपलोडर जिसमें .txt और .pdf दोनों चलेंगे
+uploaded_file = st.file_uploader("Text ya PDF File Upload Karein", type=["txt", "pdf"])
+
+text = ""
+if uploaded_file is not None:
+    # अगर फाइल PDF है तो उसे ऐसे पढ़ें
+    if uploaded_file.name.endswith(".pdf"):
+        pdf_reader = pypdf.PdfReader(uploaded_file)
+        for page in pdf_reader.pages:
+            extracted_text = page.extract_text()
+            if extracted_text:
+                text += extracted_text + "\n"
+    # अगर फाइल सामान्य Text (.txt) है तो उसे ऐसे पढ़ें
+    else:
+        text = uploaded_file.read().decode("utf-8")
 
 def parse_txt_content(text):
     questions = []
