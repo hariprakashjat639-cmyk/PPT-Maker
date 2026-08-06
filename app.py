@@ -115,7 +115,7 @@ if content.strip():
                 q_font_size = Pt(32)
                 opt_font_size = Pt(30)
                 ans_font_size = Pt(23)
-                exp_font_size = Pt(22)
+                exp_font_size = Pt(30)  # <-- यहाँ साइज़ 22 से 30 कर दिया गया है
                 card_width = Inches(12.333)
                 card_height = Inches(5.0)
                 box_width = Inches(11.733)
@@ -203,7 +203,7 @@ if content.strip():
                 # ==========================================
                 slide2 = prs.slides.add_slide(blank_layout)
 
-                # Card Height Dynamic (20:9 Ke Liye Fix Ho Gaya)
+                # Card Height Dynamic
                 card = slide2.shapes.add_shape(
                     MSO_SHAPE.ROUNDED_RECTANGLE, 
                     Inches(0.8), Inches(0.5), card_width, card_height
