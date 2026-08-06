@@ -6,7 +6,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 import io
 import pypdf
-from PIL import Image, ImageEnhance, ImageFilter
+from PIL import Image, ImageEnhance
 import pytesseract
 
 # पेज सेटिंग्स और सभी प्रोफाइल/GitHub आइकॉन/हेडर/फूटर छुपाने के लिए
@@ -22,7 +22,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("📊 Bilingual Text, PDF & Photo to PPT Converter App")
-st.write("Apni Text (`.txt`), PDF ya Photo upload karein. OCR ab Devnagari aur English ko bilkul sahi padhega!")
+st.write("Apni Text (`.txt`), PDF ya Photo upload karein. _x0000_ aur font ki saari samasyayein ab automatic fix ho jayengi!")
 
 # PPT स्लाइड साइज चुनने का ऑप्शन (तीनों फॉर्मेट शामिल)
 slide_format = st.selectbox(
@@ -31,7 +31,17 @@ slide_format = st.selectbox(
 )
 
 # फाइल अपलोडर (.txt, .pdf, और इमेज फाइलों के लिए)
-uploaded_file = st.file_uploader("Text, PDF ya Photo (Powerful OCR) Upload Karein", type=["txt", "pdf", "png", "jpg", "jpeg"])
+uploaded_file = st.file_uploader("Text, PDF ya Photo Upload Karein", type=["txt", "pdf", "png", "jpg", "jpeg"])
+
+# --- PDF या OCR के कचरे (_x0000_ आदि) को साफ़ करने वाला फंक्शन ---
+def clean_corrupted_text(text):
+    if not text:
+        return ""
+    # _x0000_ या ऐसे किसी भी अनचाहे इनकोडिंग कचरे को हटाना
+    text = re.sub(r'_x[0-9a-fA-F]+_', '', text)
+    # यदि शब्द बहुत ज्यादा टूटे हुए हों तो एक्स्ट्रा अंडरस्कोर साफ़ करें
+    text = text.replace('__', ' ').replace('_', ' ')
+    return text
 
 content = ""
 if uploaded_file is not None:
@@ -39,12 +49,14 @@ if uploaded_file is not None:
     
     if file_name.endswith(".pdf"):
         try:
-            with st.spinner("बड़ी PDF फाइल पढ़ी जा रही है, कृपया थोड़ा इंतज़ार करें..."):
+            with st.spinner("बड़ी PDF फाइल पढ़ी जा रही है और फोंट्स साफ़ किए जा रहे हैं..."):
                 pdf_reader = pypdf.PdfReader(uploaded_file)
                 for page in pdf_reader.pages:
                     extracted_text = page.extract_text()
                     if extracted_text:
                         content += extracted_text + "\n"
+                # यहाँ PDF के कचरे को साफ़ किया जाता है
+                content = clean_corrupted_text(content)
         except Exception as e:
             st.error(f"PDF फाइल पढ़ने में समस्या आई: {e}")
             
@@ -52,25 +64,18 @@ if uploaded_file is not None:
         try:
             with st.spinner("फोटो को Google Lens जैसे शक्तिशाली OCR से स्कैन किया जा रहा है..."):
                 image = Image.open(uploaded_file)
-                
-                # --- OCR को पावरफुल बनाने के लिए Image Enhancement ---
-                # इमेज को ग्रेस्केल में बदलना
                 image = image.convert('L')
-                # शार्पस (Sharpness) बढ़ाना ताकि कटे-फटे शब्द साफ़ दिखें
                 enhancer = ImageEnhance.Sharpness(image)
                 image = enhancer.enhance(2.0)
-                # कंट्रास्ट (Contrast) बढ़ाना
                 contrast_enhancer = ImageEnhance.Contrast(image)
                 image = contrast_enhancer.enhance(1.8)
                 
-                # Tesseract Config: --psm 6 (Uniform block of text के लिए सबसे बेहतरीन)
                 custom_config = r'--oem 3 --psm 6'
-                
                 try:
-                    # हिंदी और अंग्रेजी दोनों के लिए हाई-क्वालिटी OCR
                     content = pytesseract.image_to_string(image, lang='hin+eng', config=custom_config)
                 except Exception:
                     content = pytesseract.image_to_string(image, config=custom_config)
+                content = clean_corrupted_text(content)
         except Exception as e:
             st.error(f"फोटो से टेक्स्ट पढ़ने में समस्या आई: {e}")
             
@@ -81,6 +86,7 @@ if uploaded_file is not None:
                 content = raw_bytes.decode("utf-8")
             except UnicodeDecodeError:
                 content = raw_bytes.decode("latin-1")
+            content = clean_corrupted_text(content)
         except Exception as e:
             st.error(f"Text फाइल पढ़ने में समस्या आई: {e}")
 
