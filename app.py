@@ -36,7 +36,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("📊 Master Offline Multi-Format & Direct Text to PPT Maker")
-st.write("चाहे फाइल अपलोड करें या सीधे टेक्स्ट पेस्ट करें। यह ऑफलाइन AI और डबल-वेरीफाई पार्सर के साथ आपकी पसंदीदा PPT तैयार करेगा!")
+st.write("चाहे फाइल अपलोड करें या सीधे टेक्स्ट पेस्ट करें। यह ऑफलाइन AI और एडवांस्ड पार्सर के साथ आपकी पसंदीदा PPT तैयार करेगा!")
 
 # PPT स्लाइड साइज चुनने का ऑप्शन
 slide_format = st.selectbox(
@@ -94,19 +94,22 @@ else:
         placeholder="प्रश्न 1: भारत की राजधानी क्या है?\n(A) मुंबई\n(B) दिल्ली\n(C) कोलकाता\n(D) चेन्नई\nउत्तर: (B) दिल्ली\nव्याख्या: दिल्ली भारत की राष्ट्रीय राजधानी है।"
     )
 
-# --- डबल-वेरीफाई और स्मार्ट टेक्स्ट पार्सर ---
+# --- एडवांस्ड स्मार्ट टेक्स्ट पार्सर (Assertion-Reason, Matching Lists और Multi-Statement समर्थित) ---
 def double_verify_and_parse(text):
     questions = []
     lines = [line.strip() for line in text.split('\n') if line.strip()]
     
     current_q = None
-    q_pattern = re.compile(r'^(प्रश्न|\bQ\b|\bQ\d+|\d+[\.\)]|\bQuestion\b)', re.IGNORECASE)
-    opt_pattern = re.compile(r'^(\([A-Da-dअ-द1-4]\)|[A-Da-dअ-द1-4][\.\)]|\b[A-Da-dअ-द][\)])')
+    # प्रश्न शुरू होने का पैटर्न (जैसे: 5., 43., प्रश्न, Q1 आदि)
+    q_start_pattern = re.compile(r'^(\d+[\.\)]|\bप्रश्न\b|\bQ\b|\bQuestion\b)', re.IGNORECASE)
+    
+    # विकल्प का पैटर्न (जैसे A), B), C), D) या a), b), c), d)) - ध्यान दें कि (A): या (R): को विकल्प न माना जाए
+    opt_pattern = re.compile(r'^([A-Da-d][\)]|\([A-Da-d]\))(?!\s*:)')
     ans_pattern = re.compile(r'^(उत्तर|Answer|Ans|सही उत्तर)[\s:\-]', re.IGNORECASE)
     exp_pattern = re.compile(r'^(व्याख्या|Explanation|Exp|स्पष्टीकरण)[\s:\-]', re.IGNORECASE)
 
     for line in lines:
-        if q_pattern.match(line) or (current_q and line.startswith('प्रश्न')):
+        if q_start_pattern.match(line):
             if current_q and current_q['question']:
                 while len(current_q['options']) < 4:
                     current_q['options'].append(f"({len(current_q['options']) + 1}) विकल्प उपलब्ध नहीं")
@@ -118,18 +121,17 @@ def double_verify_and_parse(text):
             current_q = {'question': line, 'options': [], 'answer': '', 'explanation': []}
             continue
 
-        if opt_pattern.match(line):
-            current_q['options'].append(line)
-        elif ans_pattern.match(line):
+        if ans_pattern.match(line):
             current_q['answer'] = line
         elif exp_pattern.match(line):
             exp_text = exp_pattern.sub('', line).strip()
             if exp_text:
                 current_q['explanation'].append(exp_text)
+        elif opt_pattern.match(line) and not current_q['answer'] and not current_q['explanation']:
+            current_q['options'].append(line)
         else:
             if current_q['explanation']:
-                if len(current_q['explanation']) < 3:
-                    current_q['explanation'].append(line)
+                current_q['explanation'].append(line)
             elif current_q['answer']:
                 current_q['answer'] += " " + line
             elif current_q['options']:
@@ -138,7 +140,8 @@ def double_verify_and_parse(text):
                 else:
                     current_q['explanation'].append(line)
             else:
-                current_q['question'] += " " + line
+                # यहाँ Assertion-Reason (A)/(R), सूचियाँ (I)/(II) और विश्लेषणात्मक कथन सुरक्षित रूप से प्रश्न का हिस्सा बनेंगे
+                current_q['question'] += "\n" + line
 
     if current_q and current_q['question']:
         while len(current_q['options']) < 4:
@@ -160,10 +163,10 @@ if st.button("🚀 Master PPT Generate Karein"):
             if slide_format == "20:9 (Cinematic)":
                 prs.slide_width = Inches(13.333)
                 prs.slide_height = Inches(6.0)
-                q_font_size = Pt(32)
-                opt_font_size = Pt(30)
+                q_font_size = Pt(26)  # जटिल प्रश्नों के लिए फॉन्ट साइज संतुलित किया गया है
+                opt_font_size = Pt(26)
                 ans_font_size = Pt(23)
-                exp_font_size = Pt(30)
+                exp_font_size = Pt(26)
                 card_width = Inches(12.333)
                 card_height = Inches(5.0)
                 box_width = Inches(11.733)
@@ -171,16 +174,16 @@ if st.button("🚀 Master PPT Generate Karein"):
                 opt_box_width = Inches(12.0)
                 exp_box_height = Inches(3.2)
                 opt_left = Inches(0.9)
-                opt_top = Inches(2.5)
+                opt_top = Inches(2.8)
                 opt_space_before = Pt(2)
 
             elif slide_format == "16:9 (Widescreen)":
                 prs.slide_width = Inches(13.333)
                 prs.slide_height = Inches(7.5)
-                q_font_size = Pt(40)
-                opt_font_size = Pt(40)
+                q_font_size = Pt(30)
+                opt_font_size = Pt(32)
                 ans_font_size = Pt(28)
-                exp_font_size = Pt(32)
+                exp_font_size = Pt(28)
                 card_width = Inches(11.733)
                 card_height = Inches(6.4)
                 box_width = Inches(11.133)
@@ -188,16 +191,16 @@ if st.button("🚀 Master PPT Generate Karein"):
                 opt_box_width = Inches(12.0)
                 exp_box_height = Inches(4.5)
                 opt_left = Inches(0.8)
-                opt_top = Inches(3.0)
-                opt_space_before = Pt(8)
+                opt_top = Inches(3.2)
+                opt_space_before = Pt(6)
 
             elif slide_format == "4:3 (Standard)":
                 prs.slide_width = Inches(10)
                 prs.slide_height = Inches(7.5)
-                q_font_size = Pt(30)
-                opt_font_size = Pt(28)
+                q_font_size = Pt(24)
+                opt_font_size = Pt(24)
                 ans_font_size = Pt(24)
-                exp_font_size = Pt(24)
+                exp_font_size = Pt(22)
                 card_width = Inches(8.8)
                 card_height = Inches(6.4)
                 box_width = Inches(8.2)
@@ -205,8 +208,8 @@ if st.button("🚀 Master PPT Generate Karein"):
                 opt_box_width = Inches(8.8)
                 exp_box_height = Inches(4.5)
                 opt_left = Inches(0.5)
-                opt_top = Inches(2.8)
-                opt_space_before = Pt(6)
+                opt_top = Inches(3.0)
+                opt_space_before = Pt(4)
 
             blank_layout = prs.slide_layouts[6] 
 
@@ -216,7 +219,7 @@ if st.button("🚀 Master PPT Generate Karein"):
                 # ==========================================
                 slide1 = prs.slides.add_slide(blank_layout)
 
-                q_box = slide1.shapes.add_textbox(Inches(0.5), Inches(0.4), q_box_width, Inches(2.5))
+                q_box = slide1.shapes.add_textbox(Inches(0.5), Inches(0.3), q_box_width, Inches(2.8))
                 tf1 = q_box.text_frame
                 tf1.word_wrap = True
                 p1 = tf1.paragraphs[0]
@@ -225,9 +228,9 @@ if st.button("🚀 Master PPT Generate Karein"):
                 p1.font.size = q_font_size
                 p1.font.bold = True
                 p1.font.color.rgb = RGBColor(255, 0, 0)  # Pure Red (#FF0000)
-                p1.line_spacing = 1.3
+                p1.line_spacing = 1.2
 
-                opt_box = slide1.shapes.add_textbox(opt_left, opt_top, opt_box_width, Inches(4.3))
+                opt_box = slide1.shapes.add_textbox(opt_left, opt_top, opt_box_width, Inches(4.0))
                 tf_opt = opt_box.text_frame
                 tf_opt.word_wrap = True
 
@@ -244,7 +247,7 @@ if st.button("🚀 Master PPT Generate Karein"):
                     p.font.size = opt_font_size
                     p.font.bold = True
                     p.font.color.rgb = RGBColor(0, 0, 0)
-                    p.line_spacing = 1.4
+                    p.line_spacing = 1.3
 
                 # ==========================================
                 # SLIDE 2: Answer + Explanation
@@ -284,16 +287,16 @@ if st.button("🚀 Master PPT Generate Karein"):
                 p_exp_title = tf_exp.paragraphs[0]
                 p_exp_title.text = "व्याख्या:"
                 p_exp_title.font.name = 'Nirmala UI'
-                p_exp_title.font.size = Pt(26)
+                p_exp_title.font.size = Pt(24)
                 p_exp_title.font.bold = True
                 p_exp_title.font.color.rgb = RGBColor(30, 41, 59)
 
-                expl_lines = q['explanation'][:3] if q['explanation'] else ["महत्वपूर्ण व्याख्या बिंदु यहाँ आएंगे।"]
+                expl_lines = q['explanation'] if q['explanation'] else ["महत्वपूर्ण व्याख्या बिंदु यहाँ आएंगे।"]
 
                 for line_idx, exp_line in enumerate(expl_lines):
                     p_exp = tf_exp.add_paragraph()
-                    p_exp.space_before = Pt(6)
-                    p_exp.line_spacing = 1.25
+                    p_exp.space_before = Pt(4)
+                    p_exp.line_spacing = 1.2
                     
                     p_exp.text = f"• {exp_line}" if not exp_line.startswith('•') else exp_line
                     p_exp.font.name = 'Nirmala UI'
