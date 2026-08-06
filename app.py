@@ -109,28 +109,45 @@ if content.strip():
             prs = Presentation()
             
            # यूजर के चयन के हिसाब से साइज और फॉन्ट सेट करना
+          # तीनों साइज़ के लिए अलग-अलग सेटिंग्स (20:9, 16:9, 4:3)
             if slide_format == "20:9 (Cinematic)":
                 prs.slide_width = Inches(13.333)
                 prs.slide_height = Inches(6.0)
-                q_font_size = Pt(32)          # प्रश्न 36 pt
-                opt_font_size = Pt(30)        # ऑप्शंस 30 pt
-                ans_font_size = Pt(23)        # सही उत्तर (5 pt कम)
-                exp_font_size = Pt(27)        # व्याख्या (5 pt कम)
-                card_width = Inches(12.333)   # कार्ड चौड़ाई
-                box_width = Inches(11.733)    # बॉक्स चौड़ाई
-            else:
-                if slide_format == "16:9 (Widescreen)":
-                    prs.slide_width = Inches(13.333)
-                    prs.slide_height = Inches(7.5)
-                elif slide_format == "4:3 (Standard)":
-                    prs.slide_width = Inches(10)
-                    prs.slide_height = Inches(7.5)
+                q_font_size = Pt(32)
+                opt_font_size = Pt(30)
+                ans_font_size = Pt(23)
+                exp_font_size = Pt(27)
+                card_width = Inches(12.333)
+                box_width = Inches(11.733)
+                opt_left = Inches(1.1)        # 20:9 ऑप्शंस की बाईं तरफ से दूरी
+                opt_top = Inches(2.2)         # 20:9 ऑप्शंस की ऊपर से दूरी
+                opt_space_before = Pt(2)      # 20:9 ऑप्शंस के बीच गैप
+
+            elif slide_format == "16:9 (Widescreen)":
+                prs.slide_width = Inches(13.333)
+                prs.slide_height = Inches(7.5)
                 q_font_size = Pt(40)
                 opt_font_size = Pt(40)
                 ans_font_size = Pt(28)
                 exp_font_size = Pt(32)
                 card_width = Inches(11.733)
                 box_width = Inches(11.133)
+                opt_left = Inches(0.8)        # 16:9 ऑप्शंस की बाईं तरफ से दूरी
+                opt_top = Inches(3.0)         # 16:9 ऑप्शंस की ऊपर से दूरी
+                opt_space_before = Pt(8)      # 16:9 ऑप्शंस के बीच गैप
+
+            elif slide_format == "4:3 (Standard)":
+                prs.slide_width = Inches(10)
+                prs.slide_height = Inches(7.5)
+                q_font_size = Pt(32)
+                opt_font_size = Pt(32)
+                ans_font_size = Pt(24)
+                exp_font_size = Pt(28)
+                card_width = Inches(9.0)
+                box_width = Inches(8.4)
+                opt_left = Inches(0.6)        # 4:3 ऑप्शंस की बाईं तरफ से दूरी
+                opt_top = Inches(2.8)         # 4:3 ऑप्शंस की ऊपर से दूरी
+                opt_space_before = Pt(6)      # 4:3 ऑप्शंस के बीच गैप
                 
             blank_layout = prs.slide_layouts[6] 
 
@@ -140,7 +157,7 @@ if content.strip():
                 # ==========================================
                 slide1 = prs.slides.add_slide(blank_layout)
 
-                q_box = slide1.shapes.add_textbox(Inches(0.5), Inches(0.4), Inches(12.3), Inches(2.5))
+                opt_box = slide1.shapes.add_textbox(opt_left, opt_top, Inches(12.0), Inches(4.3))
                 tf1 = q_box.text_frame
                 tf1.word_wrap = True
                 p1 = tf1.paragraphs[0]
@@ -161,7 +178,7 @@ if content.strip():
                         p = tf_opt.paragraphs[0]
                     else:
                         p = tf_opt.add_paragraph()
-                        p.space_before = Pt(5)
+                        p.space_before = opt_space_before
                     
                     p.text = opt
                     p.font.name = 'Nirmala UI'
