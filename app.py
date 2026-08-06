@@ -156,24 +156,11 @@ if content.strip():
                 q_box_width = Inches(9.0)
                 opt_box_width = Inches(8.8)
                 exp_box_height = Inches(4.5)
-               elif slide_format == "4:3 (Standard)":
-        prs.slide_width = Inches(10)
-        prs.slide_height = Inches(7.5)
-        q_font_size = Pt(30)
-        opt_font_size = Pt(28)
-        ans_font_size = Pt(24)
-        exp_font_size = Pt(24)
-        card_width = Inches(8.8)
-        card_height = Inches(6.4)
-        box_width = Inches(8.2)
-        q_box_width = Inches(9.0)
-        opt_box_width = Inches(8.8)
-        exp_box_height = Inches(4.5)
-        opt_left = Inches(0.5)
-        opt_top = Inches(2.8)
-        opt_space_before = Pt(6)
+                opt_left = Inches(0.5)
+                opt_top = Inches(2.8)
+                opt_space_before = Pt(6)
 
-    blank_layout = prs.slide_layouts[6]
+            blank_layout = prs.slide_layouts[6]
 
             for idx, q in enumerate(parsed_questions):
                 # ==========================================
@@ -216,9 +203,10 @@ if content.strip():
                 # ==========================================
                 slide2 = prs.slides.add_slide(blank_layout)
 
+                # Card Height Dynamic (20:9 Ke Liye Fix Ho Gaya)
                 card = slide2.shapes.add_shape(
                     MSO_SHAPE.ROUNDED_RECTANGLE, 
-                    Inches(0.8), Inches(0.5), card_width, Inches(6.4)
+                    Inches(0.8), Inches(0.5), card_width, card_height
                 )
                 card.fill.solid()
                 card.fill.fore_color.rgb = RGBColor(248, 250, 252)
@@ -226,9 +214,9 @@ if content.strip():
                 card.line.width = Pt(1.5)
 
                 ans_banner = slide2.shapes.add_shape(
-    MSO_SHAPE.ROUNDED_RECTANGLE,
-    Inches(1.1), Inches(0.8), box_width, Inches(1.1)
-)
+                    MSO_SHAPE.ROUNDED_RECTANGLE,
+                    Inches(1.1), Inches(0.8), box_width, Inches(1.1)
+                )
                 ans_banner.fill.solid()
                 ans_banner.fill.fore_color.rgb = RGBColor(22, 163, 74) # Green Banner
                 ans_banner.line.color.rgb = RGBColor(22, 163, 74)
@@ -262,7 +250,7 @@ if content.strip():
                     
                     p_exp.text = f"• {exp_line}" if not exp_line.startswith('•') else exp_line
                     p_exp.font.name = 'Nirmala UI'
-                    Pt(32)exp_font_size
+                    p_exp.font.size = exp_font_size
                     p_exp.font.color.rgb = RGBColor(0, 0, 0)  # Full Deep Black
 
             ppt_stream = io.BytesIO()
