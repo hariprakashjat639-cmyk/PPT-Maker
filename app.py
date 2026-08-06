@@ -119,8 +119,8 @@ if content.strip():
                 exp_font_size = Pt(27)
                 card_width = Inches(12.333)
                 box_width = Inches(11.733)
-                opt_left = Inches(1.1)        # 20:9 ऑप्शंस की बाईं तरफ से दूरी
-                opt_top = Inches(2.2)         # 20:9 ऑप्शंस की ऊपर से दूरी
+                opt_left = Inches(0.9)        # 20:9 ऑप्शंस की बाईं तरफ से दूरी
+                opt_top = Inches(2.5)         # 20:9 ऑप्शंस की ऊपर से दूरी
                 opt_space_before = Pt(2)      # 20:9 ऑप्शंस के बीच गैप
 
             elif slide_format == "16:9 (Widescreen)":
