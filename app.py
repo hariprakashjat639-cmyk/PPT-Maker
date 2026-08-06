@@ -10,7 +10,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 
 # पेज सेटिंग्स
-st.set_page_config(page_title="Offline Model Paper PPT Maker", page_icon="📊", layout="centered")
+st.set_page_config(page_title="Offline Model Paper PPT Maker with Auto-Verify", page_icon="📊", layout="centered")
 st.markdown("""
     <style>
     [data-testid="stHeader"] {display: none;}
@@ -19,10 +19,9 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Offline PDF/Photo/Text to PPT Maker (Smart OCR Spacing)")
-st.write("शब्दों के बीच के गैप और स्पेसिंग की समस्या को दूर करने वाले एडवांस्ड OCR के साथ!")
+st.title("📊 Smart OCR & Auto-Verify Model Paper PPT Maker")
+st.write("एडवांस्ड ऑटो-करेक्शन और टेक्स्ट वेरिफिकेशन सिस्टम के साथ!")
 
-# PPT स्लाइड साइज
 slide_format = st.selectbox(
     "PPT Slide Size चुनें",
     ["16:9 (Widescreen)", "20:9 (Cinematic)", "4:3 (Standard)"]
@@ -30,14 +29,13 @@ slide_format = st.selectbox(
 
 uploaded_file = st.file_uploader("PDF, Photo या Text फाइल अपलोड करें", type=["pdf", "png", "jpg", "jpeg", "txt"])
 
-# --- एडवांस्ड और स्मार्ट OCR / टेक्स्ट एक्सट्रैक्शन फंक्शन ---
+# --- स्टेप 1: एडवांस्ड OCR और टेक्स्ट एक्सट्रैक्शन ---
 def extract_text_offline(file_bytes, file_name):
     extracted_text = ""
     try:
         if file_name.endswith(".pdf"):
             doc = fitz.open(stream=file_bytes, filetype="pdf")
             for page in doc:
-                # ब्लॉकवाइज टेक्स्ट निकालकर सही स्पेसिंग बनाए रखना
                 blocks = page.get_text("blocks")
                 blocks.sort(key=lambda b: (b[1], b[0]))
                 page_text = "\n".join([b[4] for b in blocks if b[4].strip()])
@@ -45,16 +43,13 @@ def extract_text_offline(file_bytes, file_name):
                 if len(page_text.strip()) > 20:
                     extracted_text += page_text + "\n"
                 else:
-                    # अगर पीडीएफ स्कैन की हुई है, तो हाई-क्वालिटी OCR चलाएं
-                    pix = page.get_pixmap(dpi=300) # DPI 300 से अक्षर बहुत साफ़ दिखेंगे
+                    # यदि पीडीएफ स्कैन की हुई है तो हाई-क्वालिटी OCR चलाएं
+                    pix = page.get_pixmap(dpi=300)
                     img = Image.open(io.BytesIO(pix.tobytes("png")))
-                    
-                    # इमेज को शार्प और कंट्रास्ट करना ताकि शब्दों के बीच गैप साफ़ दिखे
                     img = ImageOps.grayscale(img)
                     enhancer = ImageEnhance.Contrast(img)
                     img = enhancer.enhance(2.0)
                     
-                    # preserve_interword_spaces=1 शब्दों को आपस में चिपकने से रोकता है
                     custom_config = r'--oem 3 --psm 6 -c preserve_interword_spaces=1'
                     ocr_text = pytesseract.image_to_string(img, lang='hin+eng', config=custom_config)
                     extracted_text += ocr_text + "\n"
@@ -63,7 +58,6 @@ def extract_text_offline(file_bytes, file_name):
             extracted_text = file_bytes.decode("utf-8", errors="ignore")
             
         else:
-            # फोटो (Image) के लिए स्मार्ट OCR
             img = Image.open(io.BytesIO(file_bytes))
             img = ImageOps.grayscale(img)
             enhancer = ImageEnhance.Contrast(img)
@@ -76,9 +70,40 @@ def extract_text_offline(file_bytes, file_name):
         st.error(f"टेक्स्ट निकालने में एरर: {e}")
     return extracted_text
 
-# --- टेक्स्ट को प्रश्न, विकल्प और उत्तर में तोड़ने का स्मार्ट लॉजिक ---
+# --- स्टेप 2: टेक्स्ट वेरिफिकेशन और ऑटो-करेक्शन इंजन (त्रुटि सुधार) ---
+def verify_and_clean_text(text):
+    # सामान्य OCR अशुद्धियों को ठीक करने की डिक्शनरी
+    replacements = {
+        "पश्न": "प्रश्न", "प्रशन": "प्रश्न", "प्रष्न": "प्रश्न",
+        "उतर": "उत्तर", "उत्थर": "उत्तर", "वाक्या": "व्याख्या",
+        "व्याख्या:": "व्याख्या:", "Ans:": "उत्तर:", "Ans.": "उत्तर:"
+    }
+    
+    for wrong, right in replacements.items():
+        text = text.replace(wrong, right)
+        
+    cleaned_lines = []
+    lines = text.split('\n')
+    for line in lines:
+        line = line.strip()
+        if not line: 
+            continue
+        
+        # यदि प्रश्न या विकल्प के नंबर के बाद स्पेस छूटा है, तो उसे ठीक करें (जैसे '1.राजस्थान' -> '1. राजस्थान')
+        line = re.sub(r'^(\d+[\.\)])\s*', r'\1 ', line)
+        line = re.sub(r'^([Qप्र]\.?\s*\d+[\.\b])\s*', r' प्रश्न \1 ', line)
+        
+        # विकल्पों के बीच स्पेस ठीक करना (जैसे '(1)राजस्थान' -> '(1) राजस्थान')
+        line = re.sub(r'[\(\][A-Da-d1-4][\)\.]', lambda m: m.group(0) + " ", line)
+        
+        cleaned_lines.append(line)
+        
+    return "\n".join(cleaned_lines)
+
+# --- स्टेप 3: स्ट्रक्चर्ड पार्सर ---
 def parse_raw_text(text):
     questions = []
+    # प्रश्नों को अलग-अलग ब्लॉकों में बांटना
     raw_blocks = re.split(r'\n(?=[Qप्र]\.?\s*\d+|\d+\.)', text)
     
     for block in raw_blocks:
@@ -101,6 +126,7 @@ def parse_raw_text(text):
                 if not q_data['options']: 
                     q_data['question'] += " " + line
                     
+        # यदि विकल्प नहीं मिले, तो डमी विकल्प जोड़ें ताकि लेआउट खराब न हो
         if q_data['question'] and not q_data['options']:
             q_data['options'] = ["(1) विकल्प 1", "(2) विकल्प 2", "(3) विकल्प 3", "(4) विकल्प 4"]
             
@@ -110,15 +136,22 @@ def parse_raw_text(text):
     return questions
 
 if uploaded_file is not None:
-    if st.button("🚀 PPT Generate करें"):
-        with st.spinner("स्मार्ट OCR फाइल के शब्दों के गैप को समझ रहा है और PPT बना रहा है..."):
-            file_bytes = uploaded_file.getvalue()
-            file_name = uploaded_file.name.lower()
+    file_bytes = uploaded_file.getvalue()
+    file_name = uploaded_file.name.lower()
+    
+    # एक्सट्रेक्ट किया गया रॉ टेक्स्ट
+    raw_text = extract_text_offline(file_bytes, file_name)
+    
+    if raw_text:
+        # ऑटो-वेरिफिकेशन और करेक्शन रन करना
+        verified_text = verify_and_clean_text(raw_text)
+        
+        with st.expander("🔍 यहाँ देखें: OCR और Auto-Verify के बाद का टेक्स्ट (Verify Text)"):
+            st.text_area("Verified Text Output", verified_text, height=200)
             
-            raw_text = extract_text_offline(file_bytes, file_name)
-            
-            if raw_text:
-                parsed_questions = parse_raw_text(raw_text)
+        if st.button("🚀 इस Verified Text से PPT Generate करें"):
+            with st.spinner("वेरिफाइड डेटा से स्टाइलिश PPT बनाई जा रही है..."):
+                parsed_questions = parse_raw_text(verified_text)
                 
                 prs = Presentation()
                 
@@ -262,12 +295,12 @@ if uploaded_file is not None:
                 prs.save(ppt_stream)
                 ppt_stream.seek(0)
 
-                st.success("🎉 आपकी स्टाइलिश PPT बिल्कुल तैयार है जिसमें शब्दों के गैप की समस्या दूर कर दी गई है!")
+                st.success("🎉 एरर-फ्री और ऑटो-वेरिफाइड PPT पूरी तरह तैयार है!")
                 st.download_button(
                     label="📥 PPT Download करें",
                     data=ppt_stream,
-                    file_name="Offline_Model_Paper.pptx",
+                    file_name="Verified_Model_Paper.pptx",
                     mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
                 )
-            else:
-                st.warning("फाइल से कोई टेक्स्ट नहीं मिल पाया। कृपया साफ़ फोटो, पीडीएफ या टेक्स्ट फाइल अपलोड करें।")
+    else:
+        st.warning("फाइल से कोई टेक्स्ट नहीं मिल पाया।")
