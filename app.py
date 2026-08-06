@@ -157,9 +157,8 @@ if content.strip():
                 # ==========================================
                 slide1 = prs.slides.add_slide(blank_layout)
 
-                opt_box = slide1.shapes.add_textbox(opt_left, opt_top, Inches(12.0), Inches(4.3))
                 q_box = slide1.shapes.add_textbox(Inches(0.5), Inches(0.4), Inches(12.3), Inches(2.5))
-tf1 = q_box.text_frame
+                tf1 = q_box.text_frame
                 tf1.word_wrap = True
                 p1 = tf1.paragraphs[0]
                 p1.text = q['question']
@@ -169,7 +168,7 @@ tf1 = q_box.text_frame
                 p1.font.color.rgb = RGBColor(255, 0, 0)  # Pure Red (#FF0000)
                 p1.line_spacing = 1.3  # Line Spacing 1.30
 
-                opt_box = slide1.shapes.add_textbox(Inches(0.8), Inches(2.9), Inches(12.0), Inches(4.3))
+                opt_box = slide1.shapes.add_textbox(opt_left, opt_top, Inches(12.0), Inches(4.3))
                 tf_opt = opt_box.text_frame
                 tf_opt.word_wrap = True
 
