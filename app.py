@@ -1,205 +1,313 @@
+import streamlit as st
+import re
 from pptx import Presentation
 from pptx.util import Inches, Pt
-from pptx.enum.text import PP_ALIGN
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
+import io
+from PIL import Image
 
-def create_presentation(questions_data, output_filename="exam_model_paper.pptx"):
-    # Presentation initialize karein (16:9 Widescreen)
-    prs = Presentation()
-    prs.slide_width = Inches(13.333)
-    prs.slide_height = Inches(7.5)
-    
-    # Blank slide layout lein
-    blank_layout = prs.slide_layouts[6]
-    
-    # Colors Definition
-    BG_COLOR = RGBColor(245, 247, 250)         # Light Gray / Clean Background
-    PRIMARY_COLOR = RGBColor(26, 54, 93)       # Dark Navy Blue
-    ACCENT_COLOR = RGBColor(221, 107, 32)      # Orange / Highlight
-    TEXT_COLOR = RGBColor(45, 55, 72)          # Dark Slate
-    BOX_BG = RGBColor(255, 255, 255)           # White for options
-    SPECIAL_BG = RGBColor(254, 235, 226)       # Soft Peach for Special Type 1
-    SPECIAL_BG_2 = RGBColor(235, 248, 255)     # Soft Blue for Special Type 2
-    SPECIAL_BG_3 = RGBColor(254, 243, 199)     # Soft Yellow for Special Type 3
+# सुरक्षित रूप से वैकल्पिक लाइब्रेरीज को इम्पोर्ट करना ताकि ऐप क्रैश न हो
+try:
+    import fitz  # PyMuPDF for PDF & Images
+except ImportError:
+    fitz = None
 
-    for idx, q in enumerate(questions_data):
-        slide = prs.slides.add_slide(blank_layout)
+try:
+    from docx import Document  # python-docx for Word files
+except ImportError:
+    Document = None
+
+try:
+    import pytesseract  # Offline OCR for images
+except ImportError:
+    pytesseract = None
+
+# पेज सेटिंग्स और लेआउट
+st.set_page_config(page_title="Master Offline Model Paper PPT Maker", page_icon="📊", layout="centered")
+st.markdown("""
+    <style>
+    [data-testid="stHeader"] {display: none;}
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .viewerBadge {display: none !important;}
+    header {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+st.title("📊 Master Offline Multi-Format & Direct Text to PPT Maker")
+st.write("चाहे फाइल अपलोड करें या सीधे टेक्स्ट पेस्ट करें। यह ऑफलाइन AI और डबल-वेरीफाई पार्सर के साथ आपकी पसंदीदा PPT तैयार करेगा!")
+
+# PPT स्लाइड साइज चुनने का ऑप्शन
+slide_format = st.selectbox(
+    "PPT Slide Size Chunein",
+    ["16:9 (Widescreen)", "20:9 (Cinematic)", "4:3 (Standard)"]
+)
+
+# इनपुट का तरीका चुनने के लिए विकल्प (फाइल अपलोड या डायरेक्ट टेक्स्ट पेस्ट)
+input_choice = st.radio(
+    "Data Input Ka Tarika Chunein:",
+    ["📁 File Upload Karein (.txt, .pdf, .docx, Image)", "✍️ Direct Text Paste Karein"]
+)
+
+raw_text = ""
+
+if input_choice == "📁 File Upload Karein (.txt, .pdf, .docx, Image)":
+    uploaded_file = st.file_uploader(
+        "File Upload Karein (.txt, .pdf, .docx, .png, .jpg, .jpeg)", 
+        type=["txt", "pdf", "docx", "png", "jpg", "jpeg"]
+    )
+    if uploaded_file is not None:
+        file_bytes = uploaded_file.getvalue()
+        file_extension = uploaded_file.name.split('.')[-1].lower()
         
-        # 1. Background Shape
-        bg = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, prs.slide_height)
-        bg.fill.solid()
-        bg.fill.fore_color.rgb = BG_COLOR
-        bg.line.fill.background() # No border
-        
-        # 2. Header / Top Banner (Question Number & Title)
-        header_box = slide.shapes.add_textbox(Inches(0.8), Inches(0.5), Inches(11.73), Inches(0.8))
-        tf_h = header_box.text_frame
-        tf_h.word_wrap = True
-        p_h = tf_h.paragraphs[0]
-        p_h.text = f"Prashan {idx + 1} / {len(questions_data)}"
-        p_h.font.size = Pt(20)
-        p_h.font.bold = True
-        p_h.font.color.rgb = ACCENT_COLOR
-        
-        q_type = q.get("type", "standard") # Default standard MCQ
-        
-        # ==========================================
-        # CONDITIONAL RENDERING FOR 3 SPECIAL TYPES
-        # ==========================================
-        
-        if q_type == "special_type_1":
-            # --- SPECIAL TYPE 1 LAYOUT (e.g., Statement / Assertion based) ---
-            # Background highlight for special type 1
-            panel = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), Inches(1.4), Inches(11.73), Inches(5.4))
-            panel.fill.solid()
-            panel.fill.fore_color.rgb = SPECIAL_BG
-            panel.line.color.rgb = ACCENT_COLOR
-            panel.line.width = Pt(1.5)
+        # --- विभिन्न फॉर्मेट्स से टेक्स्ट निकालने वाला फंक्शन ---
+        try:
+            if file_extension == "txt":
+                raw_text = file_bytes.decode("utf-8", errors="ignore")
+            elif file_extension == "pdf":
+                if fitz is None:
+                    st.error("⚠️ PyMuPDF (fitz) लाइब्रेरी इंस्टॉल नहीं है।")
+                else:
+                    doc = fitz.open(stream=file_bytes, filetype="pdf")
+                    for page in doc:
+                        raw_text += page.get_text() + "\n"
+            elif file_extension == "docx":
+                if Document is None:
+                    st.error("⚠️ python-docx लाइब्रेरी इंस्टॉल नहीं है।")
+                else:
+                    doc = Document(io.BytesIO(file_bytes))
+                    for para in doc.paragraphs:
+                        raw_text += para.text + "\n"
+            elif file_extension in ["png", "jpg", "jpeg"]:
+                if pytesseract is None:
+                    st.error("⚠️ pytesseract लाइब्रेरी इंस्टॉल नहीं है।")
+                else:
+                    image = Image.open(io.BytesIO(file_bytes))
+                    raw_text = pytesseract.image_to_string(image, lang='hin+eng')
+        except Exception as e:
+            st.error(f"File reading error: {e}")
+else:
+    raw_text = st.text_area(
+        "Yahan Apne Prashn, Options, Answer aur Explanation Paste Karein:",
+        height=250,
+        placeholder="प्रश्न 1: भारत की राजधानी क्या है?\n(A) मुंबई\n(B) दिल्ली\n(C) कोलकाता\n(D) चेन्नई\nउत्तर: (B) दिल्ली\nव्याख्या: दिल्ली भारत की राष्ट्रीय राजधानी है।"
+    )
+
+# --- डबल-वेरीफाई और स्मार्ट टेक्स्ट पार्सर ---
+def double_verify_and_parse(text):
+    questions = []
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+    
+    current_q = None
+    q_pattern = re.compile(r'^(प्रश्न|\bQ\b|\bQ\d+|\d+[\.\)]|\bQuestion\b)', re.IGNORECASE)
+    opt_pattern = re.compile(r'^(\([A-Da-dअ-द1-4]\)|[A-Da-dअ-द1-4][\.\)]|\b[A-Da-dअ-द][\)])')
+    ans_pattern = re.compile(r'^(उत्तर|Answer|Ans|सही उत्तर)[\s:\-]', re.IGNORECASE)
+    exp_pattern = re.compile(r'^(व्याख्या|Explanation|Exp|स्पष्टीकरण)[\s:\-]', re.IGNORECASE)
+
+    for line in lines:
+        if q_pattern.match(line) or (current_q and line.startswith('प्रश्न')):
+            if current_q and current_q['question']:
+                while len(current_q['options']) < 4:
+                    current_q['options'].append(f"({len(current_q['options']) + 1}) विकल्प उपलब्ध नहीं")
+                questions.append(current_q)
+            current_q = {'question': line, 'options': [], 'answer': '', 'explanation': []}
+            continue
             
-            # Question Text
-            q_box = slide.shapes.add_textbox(Inches(1.1), Inches(1.6), Inches(11.13), Inches(1.5))
-            tf_q = q_box.text_frame
-            tf_q.word_wrap = True
-            p_q = tf_q.paragraphs[0]
-            p_q.text = f"[Vishisht Prashan Type 1]: {q['question']}"
-            p_q.font.size = Pt(22)
-            p_q.font.bold = True
-            p_q.font.color.rgb = PRIMARY_COLOR
+        if current_q is None:
+            current_q = {'question': line, 'options': [], 'answer': '', 'explanation': []}
+            continue
+
+        if opt_pattern.match(line):
+            current_q['options'].append(line)
+        elif ans_pattern.match(line):
+            current_q['answer'] = line
+        elif exp_pattern.match(line):
+            exp_text = exp_pattern.sub('', line).strip()
+            if exp_text:
+                current_q['explanation'].append(exp_text)
+        else:
+            if current_q['explanation']:
+                if len(current_q['explanation']) < 3:
+                    current_q['explanation'].append(line)
+            elif current_q['answer']:
+                current_q['answer'] += " " + line
+            elif current_q['options']:
+                if len(current_q['options']) < 4:
+                    current_q['options'].append(line)
+                else:
+                    current_q['explanation'].append(line)
+            else:
+                current_q['question'] += " " + line
+
+    if current_q and current_q['question']:
+        while len(current_q['options']) < 4:
+            current_q['options'].append(f"({len(current_q['options']) + 1}) विकल्प उपलब्ध नहीं")
+        questions.append(current_q)
+        
+    return questions
+
+if st.button("🚀 Master PPT Generate Karein"):
+    if not raw_text.strip():
+        st.warning("⚠️ कृपया पहले कोई फाइल अपलोड करें या टेक्स्ट बॉक्स में प्रश्न/उत्तर पेस्ट करें!")
+    else:
+        with st.spinner("टेक्स्ट को पार्स किया जा रहा है और डबल-वेरीफाई किया जा रहा है..."):
+            parsed_questions = double_verify_and_parse(raw_text)
             
-            # Options in special layout (Vertical stacked cards)
-            options = q.get("options", [])
-            top_pos = 3.3
-            for opt_idx, option in enumerate(options):
-                opt_box = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1.1), Inches(top_pos), Inches(11.13), Inches(0.8))
-                opt_box.fill.solid()
-                opt_box.fill.fore_color.rgb = BOX_BG
-                opt_box.line.color.rgb = RGBColor(226, 232, 240)
-                
+            prs = Presentation()
+            
+            # तीनों साइज़ और उनकी परफेक्ट डिज़ाइन सेटिंग्स
+            if slide_format == "20:9 (Cinematic)":
+                prs.slide_width = Inches(13.333)
+                prs.slide_height = Inches(6.0)
+                q_font_size = Pt(32)
+                opt_font_size = Pt(30)
+                ans_font_size = Pt(23)
+                exp_font_size = Pt(30)
+                card_width = Inches(12.333)
+                card_height = Inches(5.0)
+                box_width = Inches(11.733)
+                q_box_width = Inches(12.3)
+                opt_box_width = Inches(12.0)
+                exp_box_height = Inches(3.2)
+                opt_left = Inches(0.9)
+                opt_top = Inches(2.5)
+                opt_space_before = Pt(2)
+
+            elif slide_format == "16:9 (Widescreen)":
+                prs.slide_width = Inches(13.333)
+                prs.slide_height = Inches(7.5)
+                q_font_size = Pt(40)
+                opt_font_size = Pt(40)
+                ans_font_size = Pt(28)
+                exp_font_size = Pt(32)
+                card_width = Inches(11.733)
+                card_height = Inches(6.4)
+                box_width = Inches(11.133)
+                q_box_width = Inches(12.3)
+                opt_box_width = Inches(12.0)
+                exp_box_height = Inches(4.5)
+                opt_left = Inches(0.8)
+                opt_top = Inches(3.0)
+                opt_space_before = Pt(8)
+
+            elif slide_format == "4:3 (Standard)":
+                prs.slide_width = Inches(10)
+                prs.slide_height = Inches(7.5)
+                q_font_size = Pt(30)
+                opt_font_size = Pt(28)
+                ans_font_size = Pt(24)
+                exp_font_size = Pt(24)
+                card_width = Inches(8.8)
+                card_height = Inches(6.4)
+                box_width = Inches(8.2)
+                q_box_width = Inches(9.0)
+                opt_box_width = Inches(8.8)
+                exp_box_height = Inches(4.5)
+                opt_left = Inches(0.5)
+                opt_top = Inches(2.8)
+                opt_space_before = Pt(6)
+
+            blank_layout = prs.slide_layouts[6] 
+
+            for idx, q in enumerate(parsed_questions):
+                # ==========================================
+                # SLIDE 1: Question + Options
+                # ==========================================
+                slide1 = prs.slides.add_slide(blank_layout)
+
+                q_box = slide1.shapes.add_textbox(Inches(0.5), Inches(0.4), q_box_width, Inches(2.5))
+                tf1 = q_box.text_frame
+                tf1.word_wrap = True
+                p1 = tf1.paragraphs[0]
+                p1.text = q['question']
+                p1.font.name = 'Nirmala UI'
+                p1.font.size = q_font_size
+                p1.font.bold = True
+                p1.font.color.rgb = RGBColor(255, 0, 0)  # Pure Red (#FF0000)
+                p1.line_spacing = 1.3
+
+                opt_box = slide1.shapes.add_textbox(opt_left, opt_top, opt_box_width, Inches(4.3))
                 tf_opt = opt_box.text_frame
                 tf_opt.word_wrap = True
-                p_opt = tf_opt.paragraphs[0]
-                p_opt.text = f"({chr(65+opt_idx)})  {option}"
-                p_opt.font.size = Pt(18)
-                p_opt.font.color.rgb = TEXT_COLOR
-                top_pos += 0.95
 
-        elif q_type == "special_type_2":
-            # --- SPECIAL TYPE 2 LAYOUT (e.g., Match the following / Column A & B) ---
-            panel = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), Inches(1.4), Inches(11.73), Inches(5.4))
-            panel.fill.solid()
-            panel.fill.fore_color.rgb = SPECIAL_BG_2
-            panel.line.color.rgb = PRIMARY_COLOR
-            panel.line.width = Pt(1.5)
-            
-            q_box = slide.shapes.add_textbox(Inches(1.1), Inches(1.6), Inches(11.13), Inches(1.2))
-            tf_q = q_box.text_frame
-            tf_q.word_wrap = True
-            p_q = tf_q.paragraphs[0]
-            p_q.text = f"[Milan Karein Type 2]: {q['question']}"
-            p_q.font.size = Pt(22)
-            p_q.font.bold = True
-            p_q.font.color.rgb = PRIMARY_COLOR
-            
-            # Split view for columns or specific text
-            col_box = slide.shapes.add_textbox(Inches(1.1), Inches(3.0), Inches(11.13), Inches(3.5))
-            tf_col = col_box.text_frame
-            tf_col.word_wrap = True
-            for line in q.get("details", []):
-                p_line = tf_col.add_paragraph()
-                p_line.text = line
-                p_line.font.size = Pt(18)
-                p_line.font.color.rgb = TEXT_COLOR
-                p_line.space_after = Pt(10)
-
-        elif q_type == "special_type_3":
-            # --- SPECIAL TYPE 3 LAYOUT (e.g., Fact / Explanation / One-liner Highlight) ---
-            panel = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), Inches(1.4), Inches(11.73), Inches(5.4))
-            panel.fill.solid()
-            panel.fill.fore_color.rgb = SPECIAL_BG_3
-            panel.line.color.rgb = RGBColor(217, 119, 6)
-            panel.line.width = Pt(1.5)
-            
-            q_box = slide.shapes.add_textbox(Inches(1.1), Inches(1.8), Inches(11.13), Inches(4.5))
-            tf_q = q_box.text_frame
-            tf_q.word_wrap = True
-            
-            p_q = tf_q.paragraphs[0]
-            p_q.text = f"[Important Fact Type 3]"
-            p_q.font.size = Pt(18)
-            p_q.font.bold = True
-            p_q.font.color.rgb = RGBColor(180, 83, 9)
-            
-            p_q2 = tf_q.add_paragraph()
-            p_q2.text = q['question']
-            p_q2.font.size = Pt(24)
-            p_q2.font.bold = True
-            p_q2.font.color.rgb = PRIMARY_COLOR
-            p_q2.space_before = Pt(15)
-
-        else:
-            # --- STANDARD MCQ LAYOUT (Purana Style Safe & Intact) ---
-            q_box = slide.shapes.add_textbox(Inches(0.8), Inches(1.4), Inches(11.73), Inches(1.5))
-            tf_q = q_box.text_frame
-            tf_q.word_wrap = True
-            p_q = tf_q.paragraphs[0]
-            p_q.text = q['question']
-            p_q.font.size = Pt(22)
-            p_q.font.bold = True
-            p_q.font.color.rgb = PRIMARY_COLOR
-            
-            # Standard Options Grid (2x2 layout)
-            options = q.get("options", [])
-            coords = [
-                (Inches(0.8), Inches(3.2)),   # Option A
-                (Inches(6.8), Inches(3.2)),   # Option B
-                (Inches(0.8), Inches(5.0)),   # Option C
-                (Inches(6.8), Inches(5.0))    # Option D
-            ]
-            
-            for opt_idx, option in enumerate(options):
-                if opt_idx < len(coords):
-                    x, y = coords[opt_idx]
-                    opt_box = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, Inches(5.7), Inches(1.5))
-                    opt_box.fill.solid()
-                    opt_box.fill.fore_color.rgb = BOX_BG
-                    opt_box.line.color.rgb = RGBColor(226, 232, 240)
-                    opt_box.line.width = Pt(1)
+                options = q['options'] if q['options'] else ["(A) विकल्प 1", "(B) विकल्प 2", "(C) विकल्प 3", "(D) विकल्प 4"]
+                for opt_idx, opt in enumerate(options):
+                    if opt_idx == 0:
+                        p = tf_opt.paragraphs[0]
+                    else:
+                        p = tf_opt.add_paragraph()
+                        p.space_before = opt_space_before
                     
-                    tf_opt = opt_box.text_frame
-                    tf_opt.word_wrap = True
-                    p_opt = tf_opt.paragraphs[0]
-                    p_opt.text = f"({chr(65+opt_idx)})  {option}"
-                    p_opt.font.size = Pt(18)
-                    p_opt.font.color.rgb = TEXT_COLOR
+                    p.text = opt
+                    p.font.name = 'Nirmala UI'
+                    p.font.size = opt_font_size
+                    p.font.bold = True
+                    p.font.color.rgb = RGBColor(0, 0, 0)
+                    p.line_spacing = 1.4
 
-    # Presentation Save Karein
-    prs.save(output_filename)
-    print(f"Presentation successfully saved as '{output_filename}'")
+                # ==========================================
+                # SLIDE 2: Answer + Explanation
+                # ==========================================
+                slide2 = prs.slides.add_slide(blank_layout)
 
-# Example Data Structure with Standard + 3 Special Types
-sample_questions = [
-    {
-        "type": "standard",
-        "question": "Rajasthan High Court ki sthapna kab hui thi?",
-        "options": ["1949", "1950", "1956", "1952"]
-    },
-    {
-        "type": "special_type_1",
-        "question": "Kathan (A): Rajasthan me sabse zyada jile kis sambhag me hain? Karan (R): Jodhpur aur Jaipur me 7-7 jile hain.",
-        "options": ["A aur R dono sahi hain, R, A ki sahi vyakhya hai", "A aur R dono sahi hain par R sahi vyakhya nahi hai", "A sahi hai par R galat hai", "A galat hai par R sahi hai"]
-    },
-    {
-        "type": "special_type_2",
-        "question": "Nimnlikhit ka sahi milan karein (Aadiwasi mele aur sthan):",
-        "details": ["1. Beneshwar Mela -> Dungarpur", "2. Kaila Devi Mela -> Karauli", "3. Ramdevra Mela -> Jaisalmer"]
-    },
-    {
-        "type": "special_type_3",
-        "question": "Rajasthan ka rajkiya pashu (Chinkara) vanyajiv ki shreni me kis varsh ghoshit kiya gaya tha? (Mahatvapurna Tathy)",
-    }
-]
+                card = slide2.shapes.add_shape(
+                    MSO_SHAPE.ROUNDED_RECTANGLE, 
+                    Inches(0.8), Inches(0.5), card_width, card_height
+                )
+                card.fill.solid()
+                card.fill.fore_color.rgb = RGBColor(248, 250, 252)
+                card.line.color.rgb = RGBColor(203, 213, 225)
+                card.line.width = Pt(1.5)
 
-# Run code to generate PPT
-if __name__ == "__main__":
-    create_presentation(sample_questions)
+                ans_banner = slide2.shapes.add_shape(
+                    MSO_SHAPE.ROUNDED_RECTANGLE,
+                    Inches(1.1), Inches(0.8), box_width, Inches(1.1)
+                )
+                ans_banner.fill.solid()
+                ans_banner.fill.fore_color.rgb = RGBColor(22, 163, 74) # Green Banner
+                ans_banner.line.color.rgb = RGBColor(22, 163, 74)
+
+                tf_ans = ans_banner.text_frame
+                tf_ans.word_wrap = True
+                p_ans = tf_ans.paragraphs[0]
+                p_ans.text = q['answer'] if q['answer'] else "उत्तर: (सही विकल्प का नाम)"
+                p_ans.font.name = 'Nirmala UI'
+                p_ans.font.size = ans_font_size
+                p_ans.font.bold = True
+                p_ans.font.color.rgb = RGBColor(255, 255, 255)
+
+                exp_box = slide2.shapes.add_textbox(Inches(1.1), Inches(2.1), box_width, exp_box_height)
+                tf_exp = exp_box.text_frame
+                tf_exp.word_wrap = True
+
+                p_exp_title = tf_exp.paragraphs[0]
+                p_exp_title.text = "व्याख्या:"
+                p_exp_title.font.name = 'Nirmala UI'
+                p_exp_title.font.size = Pt(26)
+                p_exp_title.font.bold = True
+                p_exp_title.font.color.rgb = RGBColor(30, 41, 59)
+
+                expl_lines = q['explanation'][:3] if q['explanation'] else ["महत्वपूर्ण व्याख्या बिंदु यहाँ आएंगे।"]
+
+                for line_idx, exp_line in enumerate(expl_lines):
+                    p_exp = tf_exp.add_paragraph()
+                    p_exp.space_before = Pt(6)
+                    p_exp.line_spacing = 1.25
+                    
+                    p_exp.text = f"• {exp_line}" if not exp_line.startswith('•') else exp_line
+                    p_exp.font.name = 'Nirmala UI'
+                    p_exp.font.size = exp_font_size
+                    p_exp.font.color.rgb = RGBColor(0, 0, 0)
+
+            ppt_stream = io.BytesIO()
+            prs.save(ppt_stream)
+            ppt_stream.seek(0)
+
+            st.success("🎉 आपकी मास्टर PPT सफलताપूर्वक तैयार हो गई है!")
+            st.download_button(
+                label="📥 PPT Download Karein",
+                data=ppt_stream,
+                file_name="Master_Model_Paper.pptx",
+                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            )
