@@ -132,9 +132,9 @@ if content.strip():
                 exp_font_size = Pt(32)
                 card_width = Inches(11.733)
                 box_width = Inches(11.133)
-                opt_left = Inches(0.8)        # 16:9 ऑप्शंस की बाईं तरफ से दूरी
-                opt_top = Inches(3.0)         # 16:9 ऑप्शंस की ऊपर से दूरी
-                opt_space_before = Pt(8)      # 16:9 ऑप्शंस के बीच गैप
+                opt_left = Inches(0.6)        # 16:9 ऑप्शंस की बाईं तरफ से दूरी
+                opt_top = Inches(3.1)         # 16:9 ऑप्शंस की ऊपर से दूरी
+                opt_space_before = Pt(7)      # 16:9 ऑप्शंस के बीच गैप
 
             elif slide_format == "4:3 (Standard)":
                 prs.slide_width = Inches(10)
