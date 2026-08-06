@@ -5,10 +5,23 @@ from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 import io
-import fitz  # PyMuPDF for PDF & Images
-from docx import Document  # python-docx for Word files
 from PIL import Image
-import pytesseract  # Offline OCR for images
+
+# सुरक्षित रूप से वैकल्पिक लाइब्रेरीज को इम्पोर्ट करना ताकि ऐप क्रैश न हो
+try:
+    import fitz  # PyMuPDF for PDF & Images
+except ImportError:
+    fitz = None
+
+try:
+    from docx import Document  # python-docx for Word files
+except ImportError:
+    Document = None
+
+try:
+    import pytesseract  # Offline OCR for images
+except ImportError:
+    pytesseract = None
 
 # पेज सेटिंग्स और लेआउट
 st.set_page_config(page_title="Master Offline Model Paper PPT Maker", page_icon="📊", layout="centered")
@@ -33,7 +46,7 @@ slide_format = st.selectbox(
 
 # सभी फॉर्मेट्स के लिए फाइल अपलोडर
 uploaded_file = st.file_uploader(
-    "Faisal Upload Karein (.txt, .pdf, .docx, .png, .jpg, .jpeg)", 
+    "File Upload Karein (.txt, .pdf, .docx, .png, .jpg, .jpeg)", 
     type=["txt", "pdf", "docx", "png", "jpg", "jpeg"]
 )
 
@@ -45,16 +58,25 @@ def extract_text_from_file(file_bytes, file_extension):
             extracted_text = file_bytes.decode("utf-8", errors="ignore")
             
         elif file_extension == "pdf":
+            if fitz is None:
+                st.error("⚠️ PyMuPDF (fitz) लाइब्रेरी इंस्टॉल नहीं है। कृपया requirements.txt चेक करें।")
+                return ""
             doc = fitz.open(stream=file_bytes, filetype="pdf")
             for page in doc:
                 extracted_text += page.get_text() + "\n"
                 
         elif file_extension == "docx":
+            if Document is None:
+                st.error("⚠️ python-docx लाइब्रेरी इंस्टॉल नहीं है। कृपया requirements.txt में 'python-docx' जोड़ें।")
+                return ""
             doc = Document(io.BytesIO(file_bytes))
             for para in doc.paragraphs:
                 extracted_text += para.text + "\n"
                 
         elif file_extension in ["png", "jpg", "jpeg"]:
+            if pytesseract is None:
+                st.error("⚠️ pytesseract लाइब्रेरी इंस्टॉल नहीं है।")
+                return ""
             image = Image.open(io.BytesIO(file_bytes))
             # ऑफ़लाइन OCR (Double Verify OCR Text)
             extracted_text = pytesseract.image_to_string(image, lang='hin+eng')
