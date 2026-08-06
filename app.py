@@ -122,7 +122,7 @@ if content.strip():
                 q_box_width = Inches(12.3)
                 opt_box_width = Inches(12.0)
                 exp_box_height = Inches(3.2)
-                opt_left = Inches(0.9)
+                opt_left = Inches(0.7)
                 opt_top = Inches(2.5)
                 opt_space_before = Pt(2)
 
