@@ -19,7 +19,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Offline PDF/Photo to PPT Maker (No API Key)")
+st.title("📊 Offline PDF/Photo/Text to PPT Maker (No API Key)")
 st.write("बिना किसी API Key के, आपके पुराने स्मार्ट PPT स्टाइल के साथ!")
 
 # PPT स्लाइड साइज
@@ -28,25 +28,28 @@ slide_format = st.selectbox(
     ["16:9 (Widescreen)", "20:9 (Cinematic)", "4:3 (Standard)"]
 )
 
-uploaded_file = st.file_uploader("PDF या Photo अपलोड करें", type=["pdf", "png", "jpg", "jpeg"])
+# यहाँ .txt फाइल का ऑप्शन जोड़ दिया गया है
+uploaded_file = st.file_uploader("PDF, Photo या Text फाइल अपलोड करें", type=["pdf", "png", "jpg", "jpeg", "txt"])
 
-# --- फाइल से टेक्स्ट निकालने का ऑफलाइन तरीका (OCR) ---
+# --- फाइल से टेक्स्ट निकालने का ऑफलाइन तरीका (OCR / Text Reader) ---
 def extract_text_offline(file_bytes, file_name):
     extracted_text = ""
     try:
         if file_name.endswith(".pdf"):
             doc = fitz.open(stream=file_bytes, filetype="pdf")
             for page in doc:
-                # पहले डायरेक्ट टेक्स्ट निकालने की कोशिश
                 text = page.get_text("text")
                 if len(text.strip()) > 20:
                     extracted_text += text + "\n"
                 else:
-                    # अगर टेक्स्ट नहीं मिला तो फोटो खींचकर OCR करें
                     pix = page.get_pixmap(dpi=200)
                     img = Image.open(io.BytesIO(pix.tobytes("png")))
-                    # हिंदी और अंग्रेजी दोनों पढ़ने के लिए lang='hin+eng'
                     extracted_text += pytesseract.image_to_string(img, lang='hin+eng') + "\n"
+        
+        # --- यहाँ .txt फाइल पढ़ने का कोड जोड़ दिया गया है ---
+        elif file_name.endswith(".txt"):
+            extracted_text = file_bytes.decode("utf-8", errors="ignore")
+            
         else:
             img = Image.open(io.BytesIO(file_bytes))
             extracted_text += pytesseract.image_to_string(img, lang='hin+eng')
@@ -54,10 +57,9 @@ def extract_text_offline(file_bytes, file_name):
         st.error(f"टेक्स्ट निकालने में एरर: {e}")
     return extracted_text
 
-# --- टेक्स्ट को प्रश्न, विकल्प और उत्तर में तोड़ने का स्मार्ट लॉजिक ---
+# --- टेक्स्ट को प्रश्न, विकल्प और उत्तर में तोड़ने का स्मार्ट लॉजिक ---
 def parse_raw_text(text):
     questions = []
-    # यह लॉजिक "प्र.", "Q.", "1." जैसे शब्दों को ढूँढकर प्रश्नों को अलग करता है
     raw_blocks = re.split(r'\n(?=[Qप्र]\.?\s*\d+|\d+\.)', text)
     
     for block in raw_blocks:
@@ -70,21 +72,16 @@ def parse_raw_text(text):
             line = line.strip()
             if not line: continue
             
-            # विकल्प ढूँढने का लॉजिक (A, B, C, D या 1, 2, 3, 4)
             if re.match(r'^[\(]?[A-Da-d1-4][\)\.]\s+', line) or line.startswith('O'):
                 q_data['options'].append(line)
-            # उत्तर ढूँढने का लॉजिक
             elif "उत्तर" in line or "Ans" in line:
                 q_data['answer'] = line
-            # व्याख्या ढूँढने का लॉजिक
             elif "व्याख्या" in line or "Exp" in line:
                 q_data['explanation'].append(line)
-            # बाकी सब प्रश्न है
             else:
-                if not q_data['options']:  # अगर विकल्प अभी तक नहीं आए हैं, तो वह प्रश्न का हिस्सा है
+                if not q_data['options']: 
                     q_data['question'] += " " + line
                     
-        # अगर विकल्प नहीं मिले, तो डमी विकल्प डाल दें (ताकि PPT की डिज़ाइन खराब न हो)
         if q_data['question'] and not q_data['options']:
             q_data['options'] = ["(1) विकल्प 1", "(2) विकल्प 2", "(3) विकल्प 3", "(4) विकल्प 4"]
             
@@ -99,16 +96,13 @@ if uploaded_file is not None:
             file_bytes = uploaded_file.getvalue()
             file_name = uploaded_file.name.lower()
             
-            # 1. टेक्स्ट निकालें
             raw_text = extract_text_offline(file_bytes, file_name)
             
-            # 2. टेक्स्ट को स्ट्रक्चर करें
             if raw_text:
                 parsed_questions = parse_raw_text(raw_text)
                 
                 prs = Presentation()
                 
-                # --- आपकी ओरिजिनल PPT डिज़ाइन और साइज़ सेटिंग्स ---
                 if slide_format == "20:9 (Cinematic)":
                     prs.slide_width = Inches(13.333)
                     prs.slide_height = Inches(6.0)
@@ -161,9 +155,6 @@ if uploaded_file is not None:
                 blank_layout = prs.slide_layouts[6]
 
                 for q in parsed_questions:
-                    # ==========================================
-                    # SLIDE 1: Question + Options
-                    # ==========================================
                     slide1 = prs.slides.add_slide(blank_layout)
 
                     q_box = slide1.shapes.add_textbox(Inches(0.5), Inches(0.4), q_box_width, Inches(2.5))
@@ -195,9 +186,6 @@ if uploaded_file is not None:
                         p.font.color.rgb = RGBColor(0, 0, 0)
                         p.line_spacing = 1.4
 
-                    # ==========================================
-                    # SLIDE 2: Answer + Explanation (स्मार्ट नियम: केवल तभी बनेगी जब डेटा हो)
-                    # ==========================================
                     has_answer_data = bool(q['answer'].strip() or q['explanation'])
                     
                     if has_answer_data:
@@ -263,4 +251,4 @@ if uploaded_file is not None:
                     mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
                 )
             else:
-                st.warning("फाइल से कोई टेक्स्ट नहीं मिल पाया। कृपया साफ फोटो या पीडीएफ अपलोड करें।")
+                st.warning("फाइल से कोई टेक्स्ट नहीं मिल पाया। कृपया साफ फोटो, पीडीएफ या टेक्स्ट फाइल अपलोड करें।")
