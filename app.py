@@ -109,19 +109,19 @@ if content.strip():
             prs = Presentation()
             
            # यूजर के चयन के हिसाब से साइज और फॉन्ट सेट करना
-         # तीनों साइज़ के लिए अलग-अलग सेटिंग्स (20:9, 16:9, 4:3)
-            if slide_format == "20:9 (Cinematic)":
+         if slide_format == "20:9 (Cinematic)":
                 prs.slide_width = Inches(13.333)
                 prs.slide_height = Inches(6.0)
                 q_font_size = Pt(32)
                 opt_font_size = Pt(30)
                 ans_font_size = Pt(23)
-                exp_font_size = Pt(24)
+                exp_font_size = Pt(22)       # 20:9 के लिए व्याख्या फॉन्ट साइज़ 22
                 card_width = Inches(12.333)
-                card_height = Inches(5.0)     # 20:9 के लिए हाइट 5.0
+                card_height = Inches(5.0)
                 box_width = Inches(11.733)
-                q_box_width = Inches(12.3)    # क्वेश्चन बॉक्स चौड़ाई
-                opt_box_width = Inches(12.0)  # ऑप्शंस बॉक्स चौड़ाई
+                q_box_width = Inches(12.3)
+                opt_box_width = Inches(12.0)
+                exp_box_height = Inches(3.2) # 20:9 के लिए व्याख्या बॉक्स की हाइट 3.2 इंच
                 opt_left = Inches(0.9)
                 opt_top = Inches(2.5)
                 opt_space_before = Pt(2)
@@ -132,16 +132,33 @@ if content.strip():
                 q_font_size = Pt(40)
                 opt_font_size = Pt(40)
                 ans_font_size = Pt(28)
-                exp_font_size = Pt(32)
+                exp_font_size = Pt(30)
                 card_width = Inches(11.733)
-                card_height = Inches(6.4)     # 16:9 के लिए हाइट 6.4
+                card_height = Inches(6.4)
                 box_width = Inches(11.133)
-                q_box_width = Inches(12.3)    # क्वेश्चन बॉक्स चौड़ाई
-                opt_box_width = Inches(12.0)  # ऑप्शंस बॉक्स चौड़ाई
+                q_box_width = Inches(12.3)
+                opt_box_width = Inches(12.0)
+                exp_box_height = Inches(4.5) # 16:9 के लिए व्याख्या बॉक्स की हाइट 4.5 इंच
                 opt_left = Inches(0.6)
                 opt_top = Inches(3.1)
                 opt_space_before = Pt(7)
 
+            elif slide_format == "4:3 (Standard)":
+                prs.slide_width = Inches(10)
+                prs.slide_height = Inches(7.5)
+                q_font_size = Pt(30)
+                opt_font_size = Pt(28)
+                ans_font_size = Pt(24)
+                exp_font_size = Pt(24)
+                card_width = Inches(8.8)
+                card_height = Inches(6.4)
+                box_width = Inches(8.2)
+                q_box_width = Inches(9.0)
+                opt_box_width = Inches(8.8)
+                exp_box_height = Inches(4.5) # 4:3 के लिए व्याख्या बॉक्स की हाइट 4.5 इंच
+                opt_left = Inches(0.5)
+                opt_top = Inches(2.8)
+                opt_space_before = Pt(6)
             elif slide_format == "4:3 (Standard)":
                 prs.slide_width = Inches(10)
                 prs.slide_height = Inches(7.5)
@@ -235,7 +252,7 @@ if content.strip():
                 p_ans.font.bold = True
                 p_ans.font.color.rgb = RGBColor(255, 255, 255)
 
-                exp_box = slide2.shapes.add_textbox(Inches(1.1), Inches(2.1), box_width, Inches(4.5))
+                exp_box = slide2.shapes.add_textbox(Inches(1.1), Inches(2.0), box_width, exp_box_height)
                 tf_exp = exp_box.text_frame
                 tf_exp.word_wrap = True
 
