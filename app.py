@@ -164,7 +164,7 @@ card = slide2.shapes.add_shape(
     MSO_SHAPE.ROUNDED_RECTANGLE, 
     Inches(0.8), Inches(0.5), card_width, card_height
 )
-                opt_font_size = Pt(32)
+                Pt(32)exp_font_size
                 ans_font_size = Pt(24)
                 exp_font_size = Pt(28)
                 card_width = Inches(9.0)
