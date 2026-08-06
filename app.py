@@ -6,6 +6,8 @@ from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 import io
 import pypdf
+from PIL import Image
+import pytesseract
 
 # पेज सेटिंग्स और सभी प्रोफाइल/GitHub आइकॉन/हेडर/फूटर छुपाने के लिए
 st.set_page_config(page_title="Model Paper PPT Maker", page_icon="📊", layout="centered")
@@ -19,8 +21,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Bilingual Text to PPT Converter App")
-st.write("Apni Text (`.txt`) ya PDF file yahan upload karein aur bilkul tayar format wali PPT download karein.")
+st.title("📊 Bilingual Text, PDF & Image to PPT Converter App")
+st.write("Apni Text (`.txt`), PDF ya Photo (`.png/.jpg`) yahan upload karein. Agar utar/vyakhya hogi toh 2 slides banengi, warna sirf 1 slide!")
 
 # PPT स्लाइड साइज चुनने का ऑप्शन (20:9 साइज शामिल)
 slide_format = st.selectbox(
@@ -28,12 +30,14 @@ slide_format = st.selectbox(
     ["16:9 (Widescreen)", "20:9 (Cinematic)", "4:3 (Standard)"]
 )
 
-# सुरक्षित फाइल अपलोडर (.txt और .pdf दोनों के लिए)
-uploaded_file = st.file_uploader("Text ya PDF File Upload Karein", type=["txt", "pdf"])
+# सुरक्षित फाइल अपलोडर (.txt, .pdf, और इमेज फाइलों के लिए)
+uploaded_file = st.file_uploader("Text, PDF ya Photo Upload Karein", type=["txt", "pdf", "png", "jpg", "jpeg"])
 
 content = ""
 if uploaded_file is not None:
-    if uploaded_file.name.lower().endswith(".pdf"):
+    file_name = uploaded_file.name.lower()
+    
+    if file_name.endswith(".pdf"):
         try:
             with st.spinner("बड़ी PDF फाइल पढ़ी जा रही है, कृपया थोड़ा इंतज़ार करें..."):
                 pdf_reader = pypdf.PdfReader(uploaded_file)
@@ -43,6 +47,20 @@ if uploaded_file is not None:
                         content += extracted_text + "\n"
         except Exception as e:
             st.error(f"PDF फाइल पढ़ने में समस्या आई: {e}")
+            
+    elif file_name.endswith((".png", ".jpg", ".jpeg")):
+        try:
+            with st.spinner("फोटो से Google Lens स्टाइल में टेक्स्ट निकाला जा रहा है..."):
+                image = Image.open(uploaded_file)
+                try:
+                    # हिंदी और अंग्रेजी दोनों के लिए OCR
+                    content = pytesseract.image_to_string(image, lang='hin+eng')
+                except Exception:
+                    # अगर हिंदी पैक इंस्टॉल न हो तो अंग्रेजी से पढ़ेगा
+                    content = pytesseract.image_to_string(image, lang='eng')
+        except Exception as e:
+            st.error(f"फोटो से टेक्स्ट पढ़ने में समस्या आई: {e}")
+            
     else:
         try:
             raw_bytes = uploaded_file.getvalue()
@@ -115,14 +133,14 @@ if content.strip():
                 q_font_size = Pt(32)
                 opt_font_size = Pt(30)
                 ans_font_size = Pt(23)
-                exp_font_size = Pt(30)  # <-- यहाँ साइज़ 22 से 30 कर दिया गया है
+                exp_font_size = Pt(30)  # 20:9 व्याख्या फॉन्ट साइज़ 30
                 card_width = Inches(12.333)
                 card_height = Inches(5.0)
                 box_width = Inches(11.733)
                 q_box_width = Inches(12.3)
                 opt_box_width = Inches(12.0)
                 exp_box_height = Inches(3.2)
-                opt_left = Inches(0.7)
+                opt_left = Inches(0.9)
                 opt_top = Inches(2.5)
                 opt_space_before = Pt(2)
 
@@ -164,7 +182,7 @@ if content.strip():
 
             for idx, q in enumerate(parsed_questions):
                 # ==========================================
-                # SLIDE 1: Question + Options
+                # SLIDE 1: Question + Options (Hamesha banegi)
                 # ==========================================
                 slide1 = prs.slides.add_slide(blank_layout)
 
@@ -199,59 +217,61 @@ if content.strip():
                     p.line_spacing = 1.4  # Line Spacing 1.40
 
                 # ==========================================
-                # SLIDE 2: Answer + Explanation
+                # SLIDE 2: Answer + Explanation (Sirf tab banegi jab data hoga)
                 # ==========================================
-                slide2 = prs.slides.add_slide(blank_layout)
+                has_answer_data = bool(q['answer'].strip() or q['explanation'])
+                
+                if has_answer_data:
+                    slide2 = prs.slides.add_slide(blank_layout)
 
-                # Card Height Dynamic
-                card = slide2.shapes.add_shape(
-                    MSO_SHAPE.ROUNDED_RECTANGLE, 
-                    Inches(0.8), Inches(0.5), card_width, card_height
-                )
-                card.fill.solid()
-                card.fill.fore_color.rgb = RGBColor(248, 250, 252)
-                card.line.color.rgb = RGBColor(203, 213, 225)
-                card.line.width = Pt(1.5)
+                    card = slide2.shapes.add_shape(
+                        MSO_SHAPE.ROUNDED_RECTANGLE, 
+                        Inches(0.8), Inches(0.5), card_width, card_height
+                    )
+                    card.fill.solid()
+                    card.fill.fore_color.rgb = RGBColor(248, 250, 252)
+                    card.line.color.rgb = RGBColor(203, 213, 225)
+                    card.line.width = Pt(1.5)
 
-                ans_banner = slide2.shapes.add_shape(
-                    MSO_SHAPE.ROUNDED_RECTANGLE,
-                    Inches(1.1), Inches(0.8), box_width, Inches(1.1)
-                )
-                ans_banner.fill.solid()
-                ans_banner.fill.fore_color.rgb = RGBColor(22, 163, 74) # Green Banner
-                ans_banner.line.color.rgb = RGBColor(22, 163, 74)
+                    ans_banner = slide2.shapes.add_shape(
+                        MSO_SHAPE.ROUNDED_RECTANGLE,
+                        Inches(1.1), Inches(0.8), box_width, Inches(1.1)
+                    )
+                    ans_banner.fill.solid()
+                    ans_banner.fill.fore_color.rgb = RGBColor(22, 163, 74) # Green Banner
+                    ans_banner.line.color.rgb = RGBColor(22, 163, 74)
 
-                tf_ans = ans_banner.text_frame
-                tf_ans.word_wrap = True
-                p_ans = tf_ans.paragraphs[0]
-                p_ans.text = q['answer'] if q['answer'] else "उत्तर: (सही विकल्प का नाम)"
-                p_ans.font.name = 'Nirmala UI'
-                p_ans.font.size = ans_font_size
-                p_ans.font.bold = True
-                p_ans.font.color.rgb = RGBColor(255, 255, 255)
+                    tf_ans = ans_banner.text_frame
+                    tf_ans.word_wrap = True
+                    p_ans = tf_ans.paragraphs[0]
+                    p_ans.text = q['answer'] if q['answer'] else "उत्तर: (सही विकल्प का नाम)"
+                    p_ans.font.name = 'Nirmala UI'
+                    p_ans.font.size = ans_font_size
+                    p_ans.font.bold = True
+                    p_ans.font.color.rgb = RGBColor(255, 255, 255)
 
-                exp_box = slide2.shapes.add_textbox(Inches(1.1), Inches(2.0), box_width, exp_box_height)
-                tf_exp = exp_box.text_frame
-                tf_exp.word_wrap = True
+                    exp_box = slide2.shapes.add_textbox(Inches(1.1), Inches(2.0), box_width, exp_box_height)
+                    tf_exp = exp_box.text_frame
+                    tf_exp.word_wrap = True
 
-                p_exp_title = tf_exp.paragraphs[0]
-                p_exp_title.text = "व्याख्या:"
-                p_exp_title.font.name = 'Nirmala UI'
-                p_exp_title.font.size = Pt(26)
-                p_exp_title.font.bold = True
-                p_exp_title.font.color.rgb = RGBColor(30, 41, 59)
+                    p_exp_title = tf_exp.paragraphs[0]
+                    p_exp_title.text = "व्याख्या:"
+                    p_exp_title.font.name = 'Nirmala UI'
+                    p_exp_title.font.size = Pt(26)
+                    p_exp_title.font.bold = True
+                    p_exp_title.font.color.rgb = RGBColor(30, 41, 59)
 
-                expl_lines = q['explanation'][:3] if q['explanation'] else ["महत्वपूर्ण व्याख्या बिंदु यहाँ आएंगे।"]
+                    expl_lines = q['explanation'] if q['explanation'] else ["महत्वपूर्ण व्याख्या बिंदु यहाँ आएंगे।"]
 
-                for line_idx, exp_line in enumerate(expl_lines):
-                    p_exp = tf_exp.add_paragraph()
-                    p_exp.space_before = Pt(6)
-                    p_exp.line_spacing = 1.25  # Line Spacing 1.25
-                    
-                    p_exp.text = f"• {exp_line}" if not exp_line.startswith('•') else exp_line
-                    p_exp.font.name = 'Nirmala UI'
-                    p_exp.font.size = exp_font_size
-                    p_exp.font.color.rgb = RGBColor(0, 0, 0)  # Full Deep Black
+                    for line_idx, exp_line in enumerate(expl_lines):
+                        p_exp = tf_exp.add_paragraph()
+                        p_exp.space_before = Pt(6)
+                        p_exp.line_spacing = 1.25  # Line Spacing 1.25
+                        
+                        p_exp.text = f"• {exp_line}" if not exp_line.startswith('•') else exp_line
+                        p_exp.font.name = 'Nirmala UI'
+                        p_exp.font.size = exp_font_size
+                        p_exp.font.color.rgb = RGBColor(0, 0, 0)  # Full Deep Black
 
             ppt_stream = io.BytesIO()
             prs.save(ppt_stream)
