@@ -5,7 +5,7 @@ from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 import io
-import pypdf
+import fitz  # PyMuPDF (PDF pages ko image me badalne ke liye)
 from PIL import Image, ImageEnhance
 import pytesseract
 
@@ -21,8 +21,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Bilingual Text, PDF & Photo to PPT Converter App")
-st.write("Apni Text (`.txt`), PDF ya Photo upload karein. _x0000_ aur font ki saari samasyayein ab automatic fix ho jayengi!")
+st.title("📊 Bilingual PDF, Image & Text to PPT Converter App")
+st.write("PDF ke har page ko pehle high-resolution image me convert karke OCR se scan kiya jayega, jisse matraein aur shabd bilkul sahi aayenge!")
 
 # PPT स्लाइड साइज चुनने का ऑप्शन (तीनों फॉर्मेट शामिल)
 slide_format = st.selectbox(
@@ -30,17 +30,22 @@ slide_format = st.selectbox(
     ["16:9 (Widescreen)", "20:9 (Cinematic)", "4:3 (Standard)"]
 )
 
-# फाइल अपलोडर (.txt, .pdf, और इमेज फाइलों के लिए)
-uploaded_file = st.file_uploader("Text, PDF ya Photo Upload Karein", type=["txt", "pdf", "png", "jpg", "jpeg"])
+# फाइल अपलोडर
+uploaded_file = st.file_uploader("PDF, Photo ya Text File Upload Karein", type=["txt", "pdf", "png", "jpg", "jpeg"])
 
-# --- PDF या OCR के कचरे (_x0000_ आदि) को साफ़ करने वाला फंक्शन ---
-def clean_corrupted_text(text):
-    if not text:
-        return ""
-    # _x0000_ या ऐसे किसी भी अनचाहे इनकोडिंग कचरे को हटाना
-    text = re.sub(r'_x[0-9a-fA-F]+_', '', text)
-    # यदि शब्द बहुत ज्यादा टूटे हुए हों तो एक्स्ट्रा अंडरस्कोर साफ़ करें
-    text = text.replace('__', ' ').replace('_', ' ')
+# --- शक्तिशाली OCR फंक्शन (इमेज को शार्प करके देवनागरी पढ़ने के लिए) ---
+def run_powerful_ocr(image):
+    image = image.convert('L')
+    enhancer = ImageEnhance.Sharpness(image)
+    image = enhancer.enhance(2.0)
+    contrast_enhancer = ImageEnhance.Contrast(image)
+    image = contrast_enhancer.enhance(1.8)
+    
+    custom_config = r'--oem 3 --psm 6'
+    try:
+        text = pytesseract.image_to_string(image, lang='hin+eng', config=custom_config)
+    except Exception:
+        text = pytesseract.image_to_string(image, config=custom_config)
     return text
 
 content = ""
@@ -49,35 +54,28 @@ if uploaded_file is not None:
     
     if file_name.endswith(".pdf"):
         try:
-            with st.spinner("बड़ी PDF फाइल पढ़ी जा रही है और फोंट्स साफ़ किए जा रहे हैं..."):
-                pdf_reader = pypdf.PdfReader(uploaded_file)
-                for page in pdf_reader.pages:
-                    extracted_text = page.extract_text()
-                    if extracted_text:
-                        content += extracted_text + "\n"
-                # यहाँ PDF के कचरे को साफ़ किया जाता है
-                content = clean_corrupted_text(content)
+            with st.spinner("PDF ke har page ko image me badal kar OCR scan kiya ja raha hai..."):
+                pdf_bytes = uploaded_file.read()
+                # PyMuPDF se PDF ko open karna
+                doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+                for page_num, page in enumerate(doc):
+                    # Page ko 300 DPI par high-quality image me render karna
+                    pix = page.get_pixmap(dpi=300)
+                    img = Image.open(io.BytesIO(pix.tobytes("png")))
+                    
+                    # Ab is image par powerful OCR chalega
+                    page_text = run_powerful_ocr(img)
+                    content += f"\n{page_text}\n"
         except Exception as e:
-            st.error(f"PDF फाइल पढ़ने में समस्या आई: {e}")
+            st.error(f"PDF processing me samasya aai: {e}")
             
     elif file_name.endswith((".png", ".jpg", ".jpeg")):
         try:
-            with st.spinner("फोटो को Google Lens जैसे शक्तिशाली OCR से स्कैन किया जा रहा है..."):
+            with st.spinner("Photo ko powerful OCR se scan kiya ja raha hai..."):
                 image = Image.open(uploaded_file)
-                image = image.convert('L')
-                enhancer = ImageEnhance.Sharpness(image)
-                image = enhancer.enhance(2.0)
-                contrast_enhancer = ImageEnhance.Contrast(image)
-                image = contrast_enhancer.enhance(1.8)
-                
-                custom_config = r'--oem 3 --psm 6'
-                try:
-                    content = pytesseract.image_to_string(image, lang='hin+eng', config=custom_config)
-                except Exception:
-                    content = pytesseract.image_to_string(image, config=custom_config)
-                content = clean_corrupted_text(content)
+                content = run_powerful_ocr(image)
         except Exception as e:
-            st.error(f"फोटो से टेक्स्ट पढ़ने में समस्या आई: {e}")
+            st.error(f"Photo se text padhne me samasya aai: {e}")
             
     else:
         try:
@@ -86,9 +84,8 @@ if uploaded_file is not None:
                 content = raw_bytes.decode("utf-8")
             except UnicodeDecodeError:
                 content = raw_bytes.decode("latin-1")
-            content = clean_corrupted_text(content)
         except Exception as e:
-            st.error(f"Text फाइल पढ़ने में समस्या आई: {e}")
+            st.error(f"Text file padhne me samasya aai: {e}")
 
 # ऑरिजिनल प्रश्न और विकल्प पार्सर
 def parse_txt_content(text):
