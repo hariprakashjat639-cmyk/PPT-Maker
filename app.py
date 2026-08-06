@@ -21,17 +21,17 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Bilingual Text, PDF & Image to PPT Converter App")
-st.write("Apni Text (`.txt`), PDF ya Photo (`.png/.jpg`) yahan upload karein. Agar utar/vyakhya hogi toh 2 slides banengi, warna sirf 1 slide!")
+st.title("📊 Bilingual Text, PDF & Photo to PPT Converter App")
+st.write("Apni Text (`.txt`), PDF ya Photo upload karein. Utar/vyakhya hone par 2 slides banengi, warna sirf 1 slide!")
 
-# PPT स्लाइड साइज चुनने का ऑप्शन (20:9 साइज शामिल)
+# PPT स्लाइड साइज चुनने का ऑप्शन (तीनों फॉर्मेट शामिल)
 slide_format = st.selectbox(
     "PPT Slide Size Chunein",
     ["16:9 (Widescreen)", "20:9 (Cinematic)", "4:3 (Standard)"]
 )
 
-# सुरक्षित फाइल अपलोडर (.txt, .pdf, और इमेज फाइलों के लिए)
-uploaded_file = st.file_uploader("Text, PDF ya Photo Upload Karein", type=["txt", "pdf", "png", "jpg", "jpeg"])
+# फाइल अपलोडर (.txt, .pdf, और इमेज फाइलों के लिए)
+uploaded_file = st.file_uploader("Text, PDF ya Photo (Google Lens OCR) Upload Karein", type=["txt", "pdf", "png", "jpg", "jpeg"])
 
 content = ""
 if uploaded_file is not None:
@@ -50,16 +50,14 @@ if uploaded_file is not None:
             
     elif file_name.endswith((".png", ".jpg", ".jpeg")):
         try:
-            with st.spinner("फोटो से Google Lens स्टाइल में टेक्स्ट निकाला जा रहा है..."):
+            with st.spinner("फोटो से Google Lens स्टाइल में टेक्स्ट स्कैन किया जा रहा है..."):
                 image = Image.open(uploaded_file)
                 try:
-                    # हिंदी और अंग्रेजी दोनों के लिए OCR
                     content = pytesseract.image_to_string(image, lang='hin+eng')
                 except Exception:
-                    # अगर हिंदी पैक इंस्टॉल न हो तो अंग्रेजी से पढ़ेगा
-                    content = pytesseract.image_to_string(image, lang='eng')
+                    content = pytesseract.image_to_string(image)
         except Exception as e:
-            st.error(f"फोटो से टेक्स्ट पढ़ने में समस्या आई: {e}")
+            st.error(f"फोटो से टेक्स्ट पढ़ने में समस्या आई (Tesseract setup check karein): {e}")
             
     else:
         try:
@@ -71,6 +69,7 @@ if uploaded_file is not None:
         except Exception as e:
             st.error(f"Text फाइल पढ़ने में समस्या आई: {e}")
 
+# ऑरिजिनल प्रश्न और विकल्प पार्सर
 def parse_txt_content(text):
     questions = []
     lines = [line.strip() for line in text.split('\n') if line.strip()]
@@ -126,14 +125,14 @@ if content.strip():
             
             prs = Presentation()
             
-            # तीनों साइज़ के लिए सही अलाइनमेंट वाली सेटिंग्स
+            # तीनों साइज़ और उनकी परफेक्ट डिज़ाइन सेटिंग्स
             if slide_format == "20:9 (Cinematic)":
                 prs.slide_width = Inches(13.333)
                 prs.slide_height = Inches(6.0)
                 q_font_size = Pt(32)
                 opt_font_size = Pt(30)
                 ans_font_size = Pt(23)
-                exp_font_size = Pt(30)  # 20:9 व्याख्या फॉन्ट साइज़ 30
+                exp_font_size = Pt(30)
                 card_width = Inches(12.333)
                 card_height = Inches(5.0)
                 box_width = Inches(11.733)
@@ -197,7 +196,7 @@ if content.strip():
                 p1.font.color.rgb = RGBColor(255, 0, 0)  # Pure Red (#FF0000)
                 p1.line_spacing = 1.3  # Line Spacing 1.30
 
-                opt_box = slide1.shapes.add_textbox(opt_left, opt_top, Inches(12.0), Inches(4.3))
+                opt_box = slide1.shapes.add_textbox(opt_left, opt_top, opt_box_width, Inches(4.3))
                 tf_opt = opt_box.text_frame
                 tf_opt.word_wrap = True
 
@@ -217,7 +216,7 @@ if content.strip():
                     p.line_spacing = 1.4  # Line Spacing 1.40
 
                 # ==========================================
-                # SLIDE 2: Answer + Explanation (Sirf tab banegi jab data hoga)
+                # SLIDE 2: Answer + Explanation (Sirf data hone par banegi, warna skip hogi)
                 # ==========================================
                 has_answer_data = bool(q['answer'].strip() or q['explanation'])
                 
@@ -261,7 +260,7 @@ if content.strip():
                     p_exp_title.font.bold = True
                     p_exp_title.font.color.rgb = RGBColor(30, 41, 59)
 
-                    expl_lines = q['explanation'] if q['explanation'] else ["महत्वपूर्ण व्याख्या बिंदु यहाँ आएंगे।"]
+                    expl_lines = q['explanation'][:3] if q['explanation'] else ["महत्वपूर्ण व्याख्या बिंदु यहाँ आएंगे।"]
 
                     for line_idx, exp_line in enumerate(expl_lines):
                         p_exp = tf_exp.add_paragraph()
