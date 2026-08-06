@@ -151,7 +151,7 @@ if content.strip():
                 p1.font.color.rgb = RGBColor(255, 0, 0)  # Pure Red (#FF0000)
                 p1.line_spacing = 1.3  # Line Spacing 1.30
 
-                opt_box = slide1.shapes.add_textbox(Inches(0.8), Inches(2.8), Inches(12.0), Inches(4.3))
+                opt_box = slide1.shapes.add_textbox(Inches(0.8), Inches(2.9), Inches(12.0), Inches(4.3))
                 tf_opt = opt_box.text_frame
                 tf_opt.word_wrap = True
 
