@@ -109,19 +109,22 @@ if content.strip():
             prs = Presentation()
             
            # यूजर के चयन के हिसाब से साइज और फॉन्ट सेट करना
-          # तीनों साइज़ के लिए अलग-अलग सेटिंग्स (20:9, 16:9, 4:3)
+         # तीनों साइज़ के लिए अलग-अलग सेटिंग्स (20:9, 16:9, 4:3)
             if slide_format == "20:9 (Cinematic)":
                 prs.slide_width = Inches(13.333)
                 prs.slide_height = Inches(6.0)
                 q_font_size = Pt(32)
                 opt_font_size = Pt(30)
                 ans_font_size = Pt(23)
-                exp_font_size = Pt(27)
+                exp_font_size = Pt(24)
                 card_width = Inches(12.333)
+                card_height = Inches(5.0)     # 20:9 के लिए हाइट 5.0
                 box_width = Inches(11.733)
-                opt_left = Inches(0.9)        # 20:9 ऑप्शंस की बाईं तरफ से दूरी
-                opt_top = Inches(2.5)         # 20:9 ऑप्शंस की ऊपर से दूरी
-                opt_space_before = Pt(2)      # 20:9 ऑप्शंस के बीच गैप
+                q_box_width = Inches(12.3)    # क्वेश्चन बॉक्स चौड़ाई
+                opt_box_width = Inches(12.0)  # ऑप्शंस बॉक्स चौड़ाई
+                opt_left = Inches(0.9)
+                opt_top = Inches(2.5)
+                opt_space_before = Pt(2)
 
             elif slide_format == "16:9 (Widescreen)":
                 prs.slide_width = Inches(13.333)
@@ -131,15 +134,29 @@ if content.strip():
                 ans_font_size = Pt(28)
                 exp_font_size = Pt(32)
                 card_width = Inches(11.733)
+                card_height = Inches(6.4)     # 16:9 के लिए हाइट 6.4
                 box_width = Inches(11.133)
-                opt_left = Inches(0.6)        # 16:9 ऑप्शंस की बाईं तरफ से दूरी
-                opt_top = Inches(3.1)         # 16:9 ऑप्शंस की ऊपर से दूरी
-                opt_space_before = Pt(7)      # 16:9 ऑप्शंस के बीच गैप
+                q_box_width = Inches(12.3)    # क्वेश्चन बॉक्स चौड़ाई
+                opt_box_width = Inches(12.0)  # ऑप्शंस बॉक्स चौड़ाई
+                opt_left = Inches(0.6)
+                opt_top = Inches(3.1)
+                opt_space_before = Pt(7)
 
             elif slide_format == "4:3 (Standard)":
                 prs.slide_width = Inches(10)
                 prs.slide_height = Inches(7.5)
-                q_font_size = Pt(32)
+                q_font_size = Pt(30)
+                opt_font_size = Pt(28)
+                ans_font_size = Pt(24)
+                exp_font_size = Pt(26)
+                card_width = Inches(8.8)
+                card_height = Inches(6.4)     # 4:3 के लिए हाइट 6.4
+                box_width = Inches(8.2)
+                q_box_width = Inches(9.0)     # 4:3 के लिए कम चौड़ाई (10 इंच में फिट होने हेतु)
+                opt_box_width = Inches(8.8)   # 4:3 के लिए कम चौड़ाई
+                opt_left = Inches(0.5)
+                opt_top = Inches(2.8)
+                opt_space_before = Pt(6)
                 opt_font_size = Pt(32)
                 ans_font_size = Pt(24)
                 exp_font_size = Pt(28)
@@ -157,7 +174,7 @@ if content.strip():
                 # ==========================================
                 slide1 = prs.slides.add_slide(blank_layout)
 
-                q_box = slide1.shapes.add_textbox(Inches(0.5), Inches(0.4), Inches(12.3), Inches(2.5))
+                q_box = slide1.shapes.add_textbox(Inches(0.5), Inches(0.4), q_box_width, Inches(2.5))
                 tf1 = q_box.text_frame
                 tf1.word_wrap = True
                 p1 = tf1.paragraphs[0]
