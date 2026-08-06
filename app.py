@@ -262,7 +262,7 @@ card = slide2.shapes.add_shape(
                     
                     p_exp.text = f"• {exp_line}" if not exp_line.startswith('•') else exp_line
                     p_exp.font.name = 'Nirmala UI'
-                    p_exp.font.size = Pt(32)  # Size 32
+                    Pt(32)exp_font_size
                     p_exp.font.color.rgb = RGBColor(0, 0, 0)  # Full Deep Black
 
             ppt_stream = io.BytesIO()
