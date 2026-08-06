@@ -6,11 +6,9 @@ from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 import io
 import fitz   # PyMuPDF
-from PIL import Image
-import google.generativeai as genai
 
-# पेज सेटिंग्स और सभी लेआउट सेटिंग्स
-st.set_page_config(page_title="Gemini Powered Model Paper PPT Maker", page_icon="📊", layout="centered")
+# पेज सेटिंग्स और लेआउट
+st.set_page_config(page_title="Offline Model Paper PPT Maker", page_icon="📊", layout="centered")
 st.markdown("""
     <style>
     [data-testid="stHeader"] {display: none;}
@@ -21,11 +19,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Gemini AI Powered Bilingual PDF/Photo to PPT Maker")
-st.write("Gemini AI आपके पेपर को पढ़कर OCR की सभी गलतियाँ सुधारेगा, विकल्पों का क्रम सही करेगा और केवल डेटा होने पर ही 2nd स्लाइड बनाएगा!")
-
-# Gemini API Key इनपुट बॉक्स वापस जोड़ा गया
-gemini_api_key = st.text_input("अपनी Google Gemini API Key दर्ज करें:", type="password", placeholder="AIzaSy...")
+st.title("📊 Offline Smart Bilingual PDF/Text to PPT Maker")
+st.write("यह ऐप बिना किसी API के पूरी तरह से ऑफलाइन फाइल को पढ़ेगा, डबल-वेरीफाई करेगा और आपकी पसंद के अनुसार परफेक्ट PPT बनाएगा!")
 
 # PPT स्लाइड साइज चुनने का ऑप्शन
 slide_format = st.selectbox(
@@ -34,112 +29,95 @@ slide_format = st.selectbox(
 )
 
 # फाइल अपलोडर
-uploaded_file = st.file_uploader("PDF, Photo या Text फाइल अपलोड करें", type=["txt", "pdf", "png", "jpg", "jpeg"])
+uploaded_file = st.file_uploader("PDF या Text फाइल अपलोड करें", type=["txt", "pdf"])
 
-# --- Gemini AI के जरिए स्मार्ट टेक्स्ट क्लीनिंग और स्ट्रक्चरिंग ---
-def process_with_gemini(file_bytes, file_type, api_key):
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-2.5-flash')
-    
-    prompt = """
-    आप एक विशेषज्ञ परीक्षा प्रश्न पत्र विश्लेषक हैं। इस फाइल/इमेज से सभी बहुविकल्पीय प्रश्न (MCQs), उनके विकल्प (Options), उत्तर (Answer) और व्याख्या (Explanation) को सही क्रम में निकालें।
-    कठोर नियम:
-    1. OCR की सभी गंदी गलतियों (जैसे कटे-फटे शब्द, 'FAT' जैसी अजीब अंग्रेजी गलतियाँ) को देवनागरी/हिंदी में बिल्कुल शुद्ध रूप में सुधारें।
-    2. विकल्पों (Options) का क्रम हमेशा सही (1, 2, 3, 4 या A, B, C, D) क्रम से सेट करें, भले ही इमेज में वे आगे-पीछे हों।
-    3. यदि किसी प्रश्न का उत्तर या व्याख्या पीडीएफ में उपलब्ध नहीं है, तो उसे खाली छोड़ दें (फालतू चीजें न जोड़ें)।
-    4. आउटपुट केवल इसी फॉर्मेट में होना चाहिए ताकि इसे आसानी से पढ़ा जा सके:
-    
-    Q: [प्रश्न यहाँ लिखें]
-    O1: [विकल्प 1]
-    O2: [विकल्प 2]
-    O3: [विकल्प 3]
-    O4: [विकल्प 4]
-    Ans: [उत्तर यदि है तो लिखें, अन्यथा खाली छोड़ें]
-    Exp: [व्याख्या यदि है तो लिखें, अन्यथा खाली छोड़ें]
-    ---
-    """
-    
-    try:
-        contents = []
-        if file_type == "pdf":
-            doc = fitz.open(stream=file_bytes, filetype="pdf")
-            for page in doc:
-                pix = page.get_pixmap(dpi=200)
-                img_bytes = pix.tobytes("png")
-                contents.append(Image.open(io.BytesIO(img_bytes)))
-        else:
-            contents.append(Image.open(io.BytesIO(file_bytes)))
-            
-        contents.append(prompt)
-        response = model.generate_content(contents)
-        return response.text
-    except Exception as e:
-        st.error(f"Gemini API Error: {e}")
-        return ""
-
-# पार्सर जो Gemini के क्लीन आउटपुट को पढ़ेगा
-def parse_gemini_output(text):
+# --- ऑफलाइन डबल-वेरीफाई टेक्स्ट पार्सर ---
+def offline_double_verify_parser(text_content):
+    lines = [line.strip() for line in text_content.split('\n') if line.strip()]
     questions = []
-    blocks = text.split("---")
     
-    for block in blocks:
-        if not block.strip():
-            continue
+    current_q = {'question': '', 'options': [], 'answer': '', 'explanation': []}
+    state = 'NONE' # 'Q', 'OPT', 'ANS', 'EXP'
+    
+    for line in lines:
+        # डिटेक्ट करें कि क्या यह नया प्रश्न है (जैसे: 1., 2., प्रश्न:, Q.)
+        if re.match(r'^(\d+[\.\-\)]|प्रश्न\s*\d*[:\.-]?|Q[\.:])', line, re.IGNORECASE):
+            if current_q['question']:
+                # डबल-वेरीफाई: सुनिश्चित करें कि 4 विकल्प मौजूद हैं
+                while len(current_q['options']) < 4:
+                    current_q['options'].append(f"({len(current_q['options']) + 1}) विकल्प उपलब्ध नहीं")
+                questions.append(current_q)
+                current_q = {'question': '', 'options': [], 'answer': '', 'explanation': []}
             
-        q_data = {'question': '', 'options': [], 'answer': '', 'explanation': []}
-        lines = [l.strip() for l in block.split('\n') if l.strip()]
+            # प्रश्न साफ करें
+            clean_q = re.sub(r'^(\d+[\.\-\)]|प्रश्न\s*\d*[:\.-]?|Q[\.:])\s*', '', line, flags=re.IGNORECASE)
+            current_q['question'] = clean_q
+            state = 'Q'
+            
+        # डिटेक्ट करें विकल्प (जैसे: (1), (2), a), b), क, ख आदि)
+        elif re.match(r'^(\([1-4a-dA-D]\)|[1-4a-dA-D][\.\)]|[क-ज्ञ][\.\)])', line):
+            current_q['options'].append(line)
+            state = 'OPT'
+            
+        # डिटेक्ट करें उत्तर (Answer)
+        elif re.match(r'^(उत्तर|Ans|Answer)[:\.-]?', line, re.IGNORECASE):
+            ans_clean = re.sub(r'^(उत्तर|Ans|Answer)[:\.-]?\s*', '', line, flags=re.IGNORECASE)
+            current_q['answer'] = f"उत्तर: {ans_clean}" if not ans_clean.startswith("उत्तर") else ans_clean
+            state = 'ANS'
+            
+        # डिटेक्ट करें व्याख्या (Explanation)
+        elif re.match(r'^(व्याख्या|Exp|Explanation|स्पष्टीकरण)[:\.-]?', line, re.IGNORECASE):
+            exp_clean = re.sub(r'^(व्याख्या|Exp|Explanation|स्पष्टीकरण)[:\.-]?\s*', '', line, flags=re.IGNORECASE)
+            if exp_clean:
+                current_q['explanation'].append(exp_clean)
+            state = 'EXP'
+            
+        else:
+            # पिछले स्टेट के आधार पर मल्टी-लाइन टेक्स्ट जोड़ें
+            if state == 'Q':
+                current_q['question'] += " " + line
+            elif state == 'OPT' and current_q['options']:
+                current_q['options'][-1] += " " + line
+            elif state == 'ANS':
+                current_q['answer'] += " " + line
+            elif state == 'EXP':
+                if current_q['explanation']:
+                    current_q['explanation'][-1] += " " + line
+                else:
+                    current_q['explanation'].append(line)
+                    
+    # आखिरी प्रश्न जोड़ें
+    if current_q['question']:
+        while len(current_q['options']) < 4:
+            current_q['options'].append(f"({len(current_q['options']) + 1}) विकल्प उपलब्ध नहीं")
+        questions.append(current_q)
         
-        current_field = None
-        for line in lines:
-            if line.startswith("Q:"):
-                q_data['question'] = line.replace("Q:", "").strip()
-                current_field = 'q'
-            elif line.startswith("O1:") or line.startswith("O2:") or line.startswith("O3:") or line.startswith("O4:") or line.startswith("("):
-                opt_clean = re.sub(r'^O\d+:\s*', '', line)
-                q_data['options'].append(opt_clean)
-                current_field = 'opt'
-            elif line.startswith("Ans:"):
-                ans_text = line.replace("Ans:", "").strip()
-                if ans_text:
-                    q_data['answer'] = f"उत्तर: {ans_text}" if not ans_text.startswith("उत्तर") else ans_text
-                current_field = 'ans'
-            elif line.startswith("Exp:"):
-                exp_text = line.replace("Exp:", "").strip()
-                if exp_text:
-                    q_data['explanation'].append(exp_text)
-                current_field = 'exp'
-            else:
-                if current_field == 'q':
-                    q_data['question'] += " " + line
-                elif current_field == 'opt' and q_data['options']:
-                    q_data['options'][-1] += " " + line
-                elif current_field == 'ans':
-                    q_data['answer'] += " " + line
-                elif current_field == 'exp':
-                    if q_data['explanation']:
-                        q_data['explanation'][-1] += " " + line
-                    else:
-                        q_data['explanation'].append(line)
-                        
-        if q_data['question']:
-            if not q_data['options']:
-                q_data['options'] = ["(1) विकल्प 1", "(2) विकल्प 2", "(3) विकल्प 3", "(4) विकल्प 4"]
-            questions.append(q_data)
-            
     return questions
 
-if uploaded_file is not None and gemini_api_key:
-    if st.button("🚀 Gemini AI से PPT Generate Karein"):
-        with st.spinner("Gemini AI फाइल को समझ रहा है, शुद्ध कर रहा है और PPT बना रहा है..."):
+# PDF से टेक्स्ट निकालने का फंक्शन
+def extract_text_from_pdf(pdf_bytes):
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    full_text = ""
+    for page in doc:
+        full_text += page.get_text() + "\n"
+    return full_text
+
+if uploaded_file is not None:
+    if st.button("🚀 Offline डबल-वेरीफाई करके PPT Generate Karein"):
+        with st.spinner("फाइल को ऑफलाइन पढ़ा जा रहा है और डबल-वेरीफाई किया जा रहा है..."):
             file_bytes = uploaded_file.getvalue()
             file_name = uploaded_file.name.lower()
-            file_type = "pdf" if file_name.endswith(".pdf") else "image"
             
-            gemini_raw_text = process_with_gemini(file_bytes, file_type, gemini_api_key)
-            
-            if gemini_raw_text:
-                parsed_questions = parse_gemini_output(gemini_raw_text)
+            if file_name.endswith(".pdf"):
+                raw_text = extract_text_from_pdf(file_bytes)
+            else:
+                raw_text = file_bytes.decode("utf-8", errors="ignore")
                 
+            parsed_questions = offline_double_verify_parser(raw_text)
+            
+            if not parsed_questions:
+                st.error("⚠️ फाइल से प्रश्न नहीं मिल पाए। कृपया सुनिश्चित करें कि फाइल में प्रश्न सही फॉर्मेट में लिखे हैं।")
+            else:
                 prs = Presentation()
                 
                 # तीनों साइज़ और उनकी परफेक्ट डिज़ाइन सेटिंग्स
@@ -293,12 +271,10 @@ if uploaded_file is not None and gemini_api_key:
                 prs.save(ppt_stream)
                 ppt_stream.seek(0)
 
-                st.success("🎉 आपकी PPT बिलकुल सही शुद्धता और स्मार्ट स्लाइड रूल्स के साथ तैयार हो गई है!")
+                st.success("🎉 आपकी PPT पूरी तरह से ऑफलाइन डबल-वेरीफाई होकर तैयार हो गई है!")
                 st.download_button(
                     label="📥 PPT Download Karein",
                     data=ppt_stream,
-                    file_name="Gemini_Model_Paper.pptx",
+                    file_name="Offline_Model_Paper.pptx",
                     mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
                 )
-elif uploaded_file and not gemini_api_key:
-    st.warning("⚠️ कृपया अपनी Gemini API Key ऊपर दिए गए बॉक्स में दर्ज करें ताकि AI आपके पेपर को सही से पढ़ सके।")
