@@ -159,12 +159,12 @@ if st.button("🚀 Master PPT Generate Karein"):
             
             prs = Presentation()
             
-            # तीनों साइज़ और उनकी परफेक्ट डिज़ाइन सेटिंग्स
+            # तीनों साइज़ और उनकी परफेक्ट डिज़ाइन सेटिंग्स (विकल्पों को नीचे किया गया और फॉन्ट साइज 5 पॉइंट्स घटाया गया)
             if slide_format == "20:9 (Cinematic)":
                 prs.slide_width = Inches(13.333)
                 prs.slide_height = Inches(6.0)
                 q_font_size = Pt(26)  # जटिल प्रश्नों के लिए फॉन्ट साइज संतुलित किया गया है
-                opt_font_size = Pt(26)
+                opt_font_size = Pt(21) # 26 से 5 pts कम किया गया
                 ans_font_size = Pt(23)
                 exp_font_size = Pt(26)
                 card_width = Inches(12.333)
@@ -174,14 +174,14 @@ if st.button("🚀 Master PPT Generate Karein"):
                 opt_box_width = Inches(12.0)
                 exp_box_height = Inches(3.2)
                 opt_left = Inches(0.9)
-                opt_top = Inches(2.8)
+                opt_top = Inches(3.2)  # विकल्पों को नीचे खिसकाया गया ताकि टेक्स्ट आपस में न टकराए
                 opt_space_before = Pt(2)
 
             elif slide_format == "16:9 (Widescreen)":
                 prs.slide_width = Inches(13.333)
                 prs.slide_height = Inches(7.5)
                 q_font_size = Pt(30)
-                opt_font_size = Pt(32)
+                opt_font_size = Pt(27) # 32 से 5 pts कम किया गया
                 ans_font_size = Pt(28)
                 exp_font_size = Pt(28)
                 card_width = Inches(11.733)
@@ -191,14 +191,14 @@ if st.button("🚀 Master PPT Generate Karein"):
                 opt_box_width = Inches(12.0)
                 exp_box_height = Inches(4.5)
                 opt_left = Inches(0.8)
-                opt_top = Inches(3.2)
+                opt_top = Inches(3.6)  # विकल्पों को नीचे खिसकाया गया ताकि टेक्स्ट आपस में न टकराए
                 opt_space_before = Pt(6)
 
             elif slide_format == "4:3 (Standard)":
                 prs.slide_width = Inches(10)
                 prs.slide_height = Inches(7.5)
                 q_font_size = Pt(24)
-                opt_font_size = Pt(24)
+                opt_font_size = Pt(19) # 24 से 5 pts कम किया गया
                 ans_font_size = Pt(24)
                 exp_font_size = Pt(22)
                 card_width = Inches(8.8)
@@ -208,7 +208,7 @@ if st.button("🚀 Master PPT Generate Karein"):
                 opt_box_width = Inches(8.8)
                 exp_box_height = Inches(4.5)
                 opt_left = Inches(0.5)
-                opt_top = Inches(3.0)
+                opt_top = Inches(3.4)  # विकल्पों को नीचे खिसकाया गया ताकि टेक्स्ट आपस में न टकराए
                 opt_space_before = Pt(4)
 
             blank_layout = prs.slide_layouts[6] 
