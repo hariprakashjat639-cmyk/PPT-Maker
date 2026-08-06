@@ -108,16 +108,29 @@ if content.strip():
             
             prs = Presentation()
             
-            # यूजर के चयन के हिसाब से साइज सेट करना
+           # यूजर के चयन के हिसाब से साइज और फॉन्ट सेट करना
             if slide_format == "20:9 (Cinematic)":
                 prs.slide_width = Inches(13.333)
                 prs.slide_height = Inches(6.0)
-            elif slide_format == "16:9 (Widescreen)":
-                prs.slide_width = Inches(13.333)
-                prs.slide_height = Inches(7.5)
-            elif slide_format == "4:3 (Standard)":
-                prs.slide_width = Inches(10)
-                prs.slide_height = Inches(7.5)
+                q_font_size = Pt(36)          # प्रश्न 36 pt
+                opt_font_size = Pt(30)        # ऑप्शंस 30 pt
+                ans_font_size = Pt(23)        # सही उत्तर (5 pt कम)
+                exp_font_size = Pt(27)        # व्याख्या (5 pt कम)
+                card_width = Inches(12.333)   # कार्ड चौड़ाई
+                box_width = Inches(11.733)    # बॉक्स चौड़ाई
+            else:
+                if slide_format == "16:9 (Widescreen)":
+                    prs.slide_width = Inches(13.333)
+                    prs.slide_height = Inches(7.5)
+                elif slide_format == "4:3 (Standard)":
+                    prs.slide_width = Inches(10)
+                    prs.slide_height = Inches(7.5)
+                q_font_size = Pt(40)
+                opt_font_size = Pt(40)
+                ans_font_size = Pt(28)
+                exp_font_size = Pt(32)
+                card_width = Inches(11.733)
+                box_width = Inches(11.133)
                 
             blank_layout = prs.slide_layouts[6] 
 
@@ -133,7 +146,7 @@ if content.strip():
                 p1 = tf1.paragraphs[0]
                 p1.text = q['question']
                 p1.font.name = 'Nirmala UI'
-                p1.font.size = Pt(40)  # Size 40
+                p1.font.size = q_font_size
                 p1.font.bold = True
                 p1.font.color.rgb = RGBColor(255, 0, 0)  # Pure Red (#FF0000)
                 p1.line_spacing = 1.3  # Line Spacing 1.30
@@ -152,7 +165,7 @@ if content.strip():
                     
                     p.text = opt
                     p.font.name = 'Nirmala UI'
-                    p.font.size = Pt(40)  # Size 40
+                    p.font.size = opt_font_size
                     p.font.bold = True
                     p.font.color.rgb = RGBColor(0, 0, 0)
                     p.line_spacing = 1.4  # Line Spacing 1.40
@@ -164,7 +177,7 @@ if content.strip():
 
                 card = slide2.shapes.add_shape(
                     MSO_SHAPE.ROUNDED_RECTANGLE, 
-                    Inches(0.8), Inches(0.5), Inches(11.733), Inches(6.4)
+                    Inches(0.8), Inches(0.5), card_width, Inches(6.4)
                 )
                 card.fill.solid()
                 card.fill.fore_color.rgb = RGBColor(248, 250, 252)
@@ -172,9 +185,9 @@ if content.strip():
                 card.line.width = Pt(1.5)
 
                 ans_banner = slide2.shapes.add_shape(
-                    MSO_SHAPE.ROUNDED_RECTANGLE,
-                    Inches(1.1), Inches(0.8), Inches(11.133), Inches(1.1)
-                )
+    MSO_SHAPE.ROUNDED_RECTANGLE,
+    Inches(1.1), Inches(0.8), box_width, Inches(1.1)
+)
                 ans_banner.fill.solid()
                 ans_banner.fill.fore_color.rgb = RGBColor(22, 163, 74) # Green Banner
                 ans_banner.line.color.rgb = RGBColor(22, 163, 74)
@@ -184,11 +197,11 @@ if content.strip():
                 p_ans = tf_ans.paragraphs[0]
                 p_ans.text = q['answer'] if q['answer'] else "उत्तर: (सही विकल्प का नाम)"
                 p_ans.font.name = 'Nirmala UI'
-                p_ans.font.size = Pt(28)
+                p_ans.font.size = ans_font_size
                 p_ans.font.bold = True
                 p_ans.font.color.rgb = RGBColor(255, 255, 255)
 
-                exp_box = slide2.shapes.add_textbox(Inches(1.1), Inches(2.1), Inches(11.133), Inches(4.5))
+                exp_box = slide2.shapes.add_textbox(Inches(1.1), Inches(2.1), box_width, Inches(4.5))
                 tf_exp = exp_box.text_frame
                 tf_exp.word_wrap = True
 
