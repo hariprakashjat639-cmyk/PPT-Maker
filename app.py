@@ -6,7 +6,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 import io
 import pypdf
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageFilter
 import pytesseract
 
 # पेज सेटिंग्स और सभी प्रोफाइल/GitHub आइकॉन/हेडर/फूटर छुपाने के लिए
@@ -22,7 +22,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("📊 Bilingual Text, PDF & Photo to PPT Converter App")
-st.write("Apni Text (`.txt`), PDF ya Photo upload karein. Utar/vyakhya hone par 2 slides banengi, warna sirf 1 slide!")
+st.write("Apni Text (`.txt`), PDF ya Photo upload karein. OCR ab Devnagari aur English ko bilkul sahi padhega!")
 
 # PPT स्लाइड साइज चुनने का ऑप्शन (तीनों फॉर्मेट शामिल)
 slide_format = st.selectbox(
@@ -31,7 +31,7 @@ slide_format = st.selectbox(
 )
 
 # फाइल अपलोडर (.txt, .pdf, और इमेज फाइलों के लिए)
-uploaded_file = st.file_uploader("Text, PDF ya Photo (Google Lens OCR) Upload Karein", type=["txt", "pdf", "png", "jpg", "jpeg"])
+uploaded_file = st.file_uploader("Text, PDF ya Photo (Powerful OCR) Upload Karein", type=["txt", "pdf", "png", "jpg", "jpeg"])
 
 content = ""
 if uploaded_file is not None:
@@ -50,14 +50,29 @@ if uploaded_file is not None:
             
     elif file_name.endswith((".png", ".jpg", ".jpeg")):
         try:
-            with st.spinner("फोटो से Google Lens स्टाइल में टेक्स्ट स्कैन किया जा रहा है..."):
+            with st.spinner("फोटो को Google Lens जैसे शक्तिशाली OCR से स्कैन किया जा रहा है..."):
                 image = Image.open(uploaded_file)
+                
+                # --- OCR को पावरफुल बनाने के लिए Image Enhancement ---
+                # इमेज को ग्रेस्केल में बदलना
+                image = image.convert('L')
+                # शार्पस (Sharpness) बढ़ाना ताकि कटे-फटे शब्द साफ़ दिखें
+                enhancer = ImageEnhance.Sharpness(image)
+                image = enhancer.enhance(2.0)
+                # कंट्रास्ट (Contrast) बढ़ाना
+                contrast_enhancer = ImageEnhance.Contrast(image)
+                image = contrast_enhancer.enhance(1.8)
+                
+                # Tesseract Config: --psm 6 (Uniform block of text के लिए सबसे बेहतरीन)
+                custom_config = r'--oem 3 --psm 6'
+                
                 try:
-                    content = pytesseract.image_to_string(image, lang='hin+eng')
+                    # हिंदी और अंग्रेजी दोनों के लिए हाई-क्वालिटी OCR
+                    content = pytesseract.image_to_string(image, lang='hin+eng', config=custom_config)
                 except Exception:
-                    content = pytesseract.image_to_string(image)
+                    content = pytesseract.image_to_string(image, config=custom_config)
         except Exception as e:
-            st.error(f"फोटो से टेक्स्ट पढ़ने में समस्या आई (Tesseract setup check karein): {e}")
+            st.error(f"फोटो से टेक्स्ट पढ़ने में समस्या आई: {e}")
             
     else:
         try:
