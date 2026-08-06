@@ -156,24 +156,24 @@ if content.strip():
                 q_box_width = Inches(9.0)
                 opt_box_width = Inches(8.8)
                 exp_box_height = Inches(4.5)
-                opt_left = Inches(0.5)
-                opt_top = Inches(2.8)
-                opt_space_before = Pt(6)
-            # ✅ यह नया कोड पेस्ट करें:
-card = slide2.shapes.add_shape(
-    MSO_SHAPE.ROUNDED_RECTANGLE, 
-    Inches(0.8), Inches(0.5), card_width, card_height
-)
-                p_exp.font.size = exp_font_size
-                ans_font_size = Pt(24)
-                exp_font_size = Pt(28)
-                card_width = Inches(9.0)
-                box_width = Inches(8.4)
-                opt_left = Inches(0.6)        # 4:3 ऑप्शंस की बाईं तरफ से दूरी
-                opt_top = Inches(2.8)         # 4:3 ऑप्शंस की ऊपर से दूरी
-                opt_space_before = Pt(6)      # 4:3 ऑप्शंस के बीच गैप
-                
-            blank_layout = prs.slide_layouts[6] 
+               elif slide_format == "4:3 (Standard)":
+        prs.slide_width = Inches(10)
+        prs.slide_height = Inches(7.5)
+        q_font_size = Pt(30)
+        opt_font_size = Pt(28)
+        ans_font_size = Pt(24)
+        exp_font_size = Pt(24)
+        card_width = Inches(8.8)
+        card_height = Inches(6.4)
+        box_width = Inches(8.2)
+        q_box_width = Inches(9.0)
+        opt_box_width = Inches(8.8)
+        exp_box_height = Inches(4.5)
+        opt_left = Inches(0.5)
+        opt_top = Inches(2.8)
+        opt_space_before = Pt(6)
+
+    blank_layout = prs.slide_layouts[6]
 
             for idx, q in enumerate(parsed_questions):
                 # ==========================================
