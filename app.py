@@ -159,21 +159,11 @@ if content.strip():
                 opt_left = Inches(0.5)
                 opt_top = Inches(2.8)
                 opt_space_before = Pt(6)
-            elif slide_format == "4:3 (Standard)":
-                prs.slide_width = Inches(10)
-                prs.slide_height = Inches(7.5)
-                q_font_size = Pt(30)
-                opt_font_size = Pt(28)
-                ans_font_size = Pt(24)
-                exp_font_size = Pt(26)
-                card_width = Inches(8.8)
-                card_height = Inches(6.4)     # 4:3 के लिए हाइट 6.4
-                box_width = Inches(8.2)
-                q_box_width = Inches(9.0)     # 4:3 के लिए कम चौड़ाई (10 इंच में फिट होने हेतु)
-                opt_box_width = Inches(8.8)   # 4:3 के लिए कम चौड़ाई
-                opt_left = Inches(0.5)
-                opt_top = Inches(2.8)
-                opt_space_before = Pt(6)
+            # ✅ यह नया कोड पेस्ट करें:
+card = slide2.shapes.add_shape(
+    MSO_SHAPE.ROUNDED_RECTANGLE, 
+    Inches(0.8), Inches(0.5), card_width, card_height
+)
                 opt_font_size = Pt(32)
                 ans_font_size = Pt(24)
                 exp_font_size = Pt(28)
