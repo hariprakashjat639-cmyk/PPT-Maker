@@ -112,7 +112,7 @@ if content.strip():
             if slide_format == "20:9 (Cinematic)":
                 prs.slide_width = Inches(13.333)
                 prs.slide_height = Inches(6.0)
-                q_font_size = Pt(36)          # प्रश्न 36 pt
+                q_font_size = Pt(32)          # प्रश्न 36 pt
                 opt_font_size = Pt(30)        # ऑप्शंस 30 pt
                 ans_font_size = Pt(23)        # सही उत्तर (5 pt कम)
                 exp_font_size = Pt(27)        # व्याख्या (5 pt कम)
@@ -161,7 +161,7 @@ if content.strip():
                         p = tf_opt.paragraphs[0]
                     else:
                         p = tf_opt.add_paragraph()
-                        p.space_before = Pt(8)
+                        p.space_before = Pt(5)
                     
                     p.text = opt
                     p.font.name = 'Nirmala UI'
