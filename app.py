@@ -7,7 +7,7 @@ from pptx.enum.shapes import MSO_SHAPE
 import io
 from PIL import Image
 
-# à¤¸à¥à¤°à¤•à¥à¤·à¤¿à¤¤ à¤°à¥‚à¤ª à¤¸à¥‡ à¤µà¥ˆà¤•à¤²à¥à¤ªà¤¿à¤• à¤²à¤¾à¤‡à¤¬à¥à¤°à¥‡à¤°à¥€à¤œ à¤•à¥‹ à¤‡à¤®à¥à¤ªà¥‹à¤°à¥à¤Ÿ à¤•à¤°à¤¨à¤¾ à¤¤à¤¾à¤•à¤¿ à¤à¤ª à¤•à¥à¤°à¥ˆà¤¶ à¤¨ à¤¹à¥‹
+# सुरक्षित रूप से वैकल्पिक लाइब्रेरीज को इम्पोर्ट करना ताकि ऐप क्रैश न हो
 try:
     import fitz  # PyMuPDF for PDF & Images
 except ImportError:
@@ -23,8 +23,8 @@ try:
 except ImportError:
     pytesseract = None
 
-# à¤ªà¥‡à¤œ à¤¸à¥‡à¤Ÿà¤¿à¤‚à¤—à¥à¤¸ à¤”à¤° à¤²à¥‡à¤†à¤‰à¤Ÿ
-st.set_page_config(page_title="Master Offline Model Paper PPT Maker", page_icon="ðŸ“Š", layout="centered")
+# पेज सेटिंग्स और लेआउट
+st.set_page_config(page_title="Master Offline Model Paper PPT Maker", page_icon="📊", layout="centered")
 st.markdown("""
     <style>
     [data-testid="stHeader"] {display: none;}
@@ -35,24 +35,24 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("ðŸ“Š Master Offline Multi-Format & Direct Text to PPT Maker")
-st.write("à¤šà¤¾à¤¹à¥‡ à¤«à¤¾à¤‡à¤² à¤…à¤ªà¤²à¥‹à¤¡ à¤•à¤°à¥‡à¤‚ à¤¯à¤¾ à¤¸à¥€à¤§à¥‡ à¤Ÿà¥‡à¤•à¥à¤¸à¥à¤Ÿ à¤ªà¥‡à¤¸à¥à¤Ÿ à¤•à¤°à¥‡à¤‚à¥¤ à¤¯à¤¹ à¤‘à¤«à¤²à¤¾à¤‡à¤¨ AI à¤”à¤° à¤¡à¤¬à¤²-à¤µà¥‡à¤°à¥€à¤«à¤¾à¤ˆ à¤ªà¤¾à¤°à¥à¤¸à¤° à¤•à¥‡ à¤¸à¤¾à¤¥ à¤†à¤ªà¤•à¥€ à¤ªà¤¸à¤‚à¤¦à¥€à¤¦à¤¾ PPT à¤¤à¥ˆà¤¯à¤¾à¤° à¤•à¤°à¥‡à¤—à¤¾!")
+st.title("📊 Master Offline Multi-Format & Direct Text to PPT Maker")
+st.write("चाहे फाइल अपलोड करें या सीधे टेक्स्ट पेस्ट करें। यह ऑफलाइन AI और डबल-वेरीफाई पार्सर के साथ आपकी पसंदीदा PPT तैयार करेगा!")
 
-# PPT à¤¸à¥à¤²à¤¾à¤‡à¤¡ à¤¸à¤¾à¤‡à¤œ à¤šà¥à¤¨à¤¨à¥‡ à¤•à¤¾ à¤‘à¤ªà¥à¤¶à¤¨
+# PPT स्लाइड साइज चुनने का ऑप्शन
 slide_format = st.selectbox(
     "PPT Slide Size Chunein",
     ["16:9 (Widescreen)", "20:9 (Cinematic)", "4:3 (Standard)"]
 )
 
-# à¤‡à¤¨à¤ªà¥à¤Ÿ à¤•à¤¾ à¤¤à¤°à¥€à¤•à¤¾ à¤šà¥à¤¨à¤¨à¥‡ à¤•à¥‡ à¤²à¤¿à¤ à¤µà¤¿à¤•à¤²à¥à¤ª (à¤«à¤¾à¤‡à¤² à¤…à¤ªà¤²à¥‹à¤¡ à¤¯à¤¾ à¤¡à¤¾à¤¯à¤°à¥‡à¤•à¥à¤Ÿ à¤Ÿà¥‡à¤•à¥à¤¸à¥à¤Ÿ à¤ªà¥‡à¤¸à¥à¤Ÿ)
+# इनपुट का तरीका चुनने के लिए विकल्प (फाइल अपलोड या डायरेक्ट टेक्स्ट पेस्ट)
 input_choice = st.radio(
     "Data Input Ka Tarika Chunein:",
-    ["ðŸ“ File Upload Karein (.txt, .pdf, .docx, Image)", "âœï¸ Direct Text Paste Karein"]
+    ["📁 File Upload Karein (.txt, .pdf, .docx, Image)", "✍️ Direct Text Paste Karein"]
 )
 
 raw_text = ""
 
-if input_choice == "ðŸ“ File Upload Karein (.txt, .pdf, .docx, Image)":
+if input_choice == "📁 File Upload Karein (.txt, .pdf, .docx, Image)":
     uploaded_file = st.file_uploader(
         "File Upload Karein (.txt, .pdf, .docx, .png, .jpg, .jpeg)", 
         type=["txt", "pdf", "docx", "png", "jpg", "jpeg"]
@@ -61,27 +61,27 @@ if input_choice == "ðŸ“ File Upload Karein (.txt, .pdf, .docx, Image)":
         file_bytes = uploaded_file.getvalue()
         file_extension = uploaded_file.name.split('.')[-1].lower()
         
-        # --- à¤µà¤¿à¤­à¤¿à¤¨à¥à¤¨ à¤«à¥‰à¤°à¥à¤®à¥‡à¤Ÿà¥à¤¸ à¤¸à¥‡ à¤Ÿà¥‡à¤•à¥à¤¸à¥à¤Ÿ à¤¨à¤¿à¤•à¤¾à¤²à¤¨à¥‡ à¤µà¤¾à¤²à¤¾ à¤«à¤‚à¤•à¥à¤¶à¤¨ ---
+        # --- विभिन्न फॉर्मेट्स से टेक्स्ट निकालने वाला फंक्शन ---
         try:
             if file_extension == "txt":
                 raw_text = file_bytes.decode("utf-8", errors="ignore")
             elif file_extension == "pdf":
                 if fitz is None:
-                    st.error("âš ï¸ PyMuPDF (fitz) à¤²à¤¾à¤‡à¤¬à¥à¤°à¥‡à¤°à¥€ à¤‡à¤‚à¤¸à¥à¤Ÿà¥‰à¤² à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤")
+                    st.error("⚠️ PyMuPDF (fitz) लाइब्रेरी इंस्टॉल नहीं है।")
                 else:
                     doc = fitz.open(stream=file_bytes, filetype="pdf")
                     for page in doc:
                         raw_text += page.get_text() + "\n"
             elif file_extension == "docx":
                 if Document is None:
-                    st.error("âš ï¸ python-docx à¤²à¤¾à¤‡à¤¬à¥à¤°à¥‡à¤°à¥€ à¤‡à¤‚à¤¸à¥à¤Ÿà¥‰à¤² à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤")
+                    st.error("⚠️ python-docx लाइब्रेरी इंस्टॉल नहीं है।")
                 else:
                     doc = Document(io.BytesIO(file_bytes))
                     for para in doc.paragraphs:
                         raw_text += para.text + "\n"
             elif file_extension in ["png", "jpg", "jpeg"]:
                 if pytesseract is None:
-                    st.error("âš ï¸ pytesseract à¤²à¤¾à¤‡à¤¬à¥à¤°à¥‡à¤°à¥€ à¤‡à¤‚à¤¸à¥à¤Ÿà¥‰à¤² à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤")
+                    st.error("⚠️ pytesseract लाइब्रेरी इंस्टॉल नहीं है।")
                 else:
                     image = Image.open(io.BytesIO(file_bytes))
                     raw_text = pytesseract.image_to_string(image, lang='hin+eng')
@@ -91,25 +91,25 @@ else:
     raw_text = st.text_area(
         "Yahan Apne Prashn, Options, Answer aur Explanation Paste Karein:",
         height=250,
-        placeholder="à¤ªà¥à¤°à¤¶à¥à¤¨ 1: à¤­à¤¾à¤°à¤¤ à¤•à¥€ à¤°à¤¾à¤œà¤§à¤¾à¤¨à¥€ à¤•à¥à¤¯à¤¾ à¤¹à¥ˆ?\n(A) à¤®à¥à¤‚à¤¬à¤ˆ\n(B) à¤¦à¤¿à¤²à¥à¤²à¥€\n(C) à¤•à¥‹à¤²à¤•à¤¾à¤¤à¤¾\n(D) à¤šà¥‡à¤¨à¥à¤¨à¤ˆ\nà¤‰à¤¤à¥à¤¤à¤°: (B) à¤¦à¤¿à¤²à¥à¤²à¥€\nà¤µà¥à¤¯à¤¾à¤–à¥à¤¯à¤¾: à¤¦à¤¿à¤²à¥à¤²à¥€ à¤­à¤¾à¤°à¤¤ à¤•à¥€ à¤°à¤¾à¤·à¥à¤Ÿà¥à¤°à¥€à¤¯ à¤°à¤¾à¤œà¤§à¤¾à¤¨à¥€ à¤¹à¥ˆà¥¤"
+        placeholder="प्रश्न 1: भारत की राजधानी क्या है?\n(A) मुंबई\n(B) दिल्ली\n(C) कोलकाता\n(D) चेन्नई\nउत्तर: (B) दिल्ली\nव्याख्या: दिल्ली भारत की राष्ट्रीय राजधानी है।"
     )
 
-# --- à¤¡à¤¬à¤²-à¤µà¥‡à¤°à¥€à¤«à¤¾à¤ˆ à¤”à¤° à¤¸à¥à¤®à¤¾à¤°à¥à¤Ÿ à¤Ÿà¥‡à¤•à¥à¤¸à¥à¤Ÿ à¤ªà¤¾à¤°à¥à¤¸à¤° ---
+# --- डबल-वेरीफाई और स्मार्ट टेक्स्ट पार्सर ---
 def double_verify_and_parse(text):
     questions = []
     lines = [line.strip() for line in text.split('\n') if line.strip()]
     
     current_q = None
-    q_pattern = re.compile(r'^(à¤ªà¥à¤°à¤¶à¥à¤¨|\bQ\b|\bQ\d+|\d+[\.\)]|\bQuestion\b)', re.IGNORECASE)
-    opt_pattern = re.compile(r'^(\([A-Da-dà¤…-à¤¦1-4]\)|[A-Da-dà¤…-à¤¦1-4][\.\)]|\b[A-Da-dà¤…-à¤¦][\)])')
-    ans_pattern = re.compile(r'^(à¤‰à¤¤à¥à¤¤à¤°|Answer|Ans|à¤¸à¤¹à¥€ à¤‰à¤¤à¥à¤¤à¤°)[\s:\-]', re.IGNORECASE)
-    exp_pattern = re.compile(r'^(à¤µà¥à¤¯à¤¾à¤–à¥à¤¯à¤¾|Explanation|Exp|à¤¸à¥à¤ªà¤·à¥à¤Ÿà¥€à¤•à¤°à¤£)[\s:\-]', re.IGNORECASE)
+    q_pattern = re.compile(r'^(प्रश्न|\bQ\b|\bQ\d+|\d+[\.\)]|\bQuestion\b)', re.IGNORECASE)
+    opt_pattern = re.compile(r'^(\([A-Da-dअ-द1-4]\)|[A-Da-dअ-द1-4][\.\)]|\b[A-Da-dअ-द][\)])')
+    ans_pattern = re.compile(r'^(उत्तर|Answer|Ans|सही उत्तर)[\s:\-]', re.IGNORECASE)
+    exp_pattern = re.compile(r'^(व्याख्या|Explanation|Exp|स्पष्टीकरण)[\s:\-]', re.IGNORECASE)
 
     for line in lines:
-        if q_pattern.match(line) or (current_q and line.startswith('à¤ªà¥à¤°à¤¶à¥à¤¨')):
+        if q_pattern.match(line) or (current_q and line.startswith('प्रश्न')):
             if current_q and current_q['question']:
                 while len(current_q['options']) < 4:
-                    current_q['options'].append(f"({len(current_q['options']) + 1}) à¤µà¤¿à¤•à¤²à¥à¤ª à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚")
+                    current_q['options'].append(f"({len(current_q['options']) + 1}) विकल्प उपलब्ध नहीं")
                 questions.append(current_q)
             current_q = {'question': line, 'options': [], 'answer': '', 'explanation': []}
             continue
@@ -142,21 +142,21 @@ def double_verify_and_parse(text):
 
     if current_q and current_q['question']:
         while len(current_q['options']) < 4:
-            current_q['options'].append(f"({len(current_q['options']) + 1}) à¤µà¤¿à¤•à¤²à¥à¤ª à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚")
+            current_q['options'].append(f"({len(current_q['options']) + 1}) विकल्प उपलब्ध नहीं")
         questions.append(current_q)
         
     return questions
 
-if st.button("ðŸš€ Master PPT Generate Karein"):
+if st.button("🚀 Master PPT Generate Karein"):
     if not raw_text.strip():
-        st.warning("âš ï¸ à¤•à¥ƒà¤ªà¤¯à¤¾ à¤ªà¤¹à¤²à¥‡ à¤•à¥‹à¤ˆ à¤«à¤¾à¤‡à¤² à¤…à¤ªà¤²à¥‹à¤¡ à¤•à¤°à¥‡à¤‚ à¤¯à¤¾ à¤Ÿà¥‡à¤•à¥à¤¸à¥à¤Ÿ à¤¬à¥‰à¤•à¥à¤¸ à¤®à¥‡à¤‚ à¤ªà¥à¤°à¤¶à¥à¤¨/à¤‰à¤¤à¥à¤¤à¤° à¤ªà¥‡à¤¸à¥à¤Ÿ à¤•à¤°à¥‡à¤‚!")
+        st.warning("⚠️ कृपया पहले कोई फाइल अपलोड करें या टेक्स्ट बॉक्स में प्रश्न/उत्तर पेस्ट करें!")
     else:
-        with st.spinner("à¤Ÿà¥‡à¤•à¥à¤¸à¥à¤Ÿ à¤•à¥‹ à¤ªà¤¾à¤°à¥à¤¸ à¤•à¤¿à¤¯à¤¾ à¤œà¤¾ à¤°à¤¹à¤¾ à¤¹à¥ˆ à¤”à¤° à¤¡à¤¬à¤²-à¤µà¥‡à¤°à¥€à¤«à¤¾à¤ˆ à¤•à¤¿à¤¯à¤¾ à¤œà¤¾ à¤°à¤¹à¤¾ à¤¹à¥ˆ..."):
+        with st.spinner("टेक्स्ट को पार्स किया जा रहा है और डबल-वेरीफाई किया जा रहा है..."):
             parsed_questions = double_verify_and_parse(raw_text)
             
             prs = Presentation()
             
-            # à¤¤à¥€à¤¨à¥‹à¤‚ à¤¸à¤¾à¤‡à¤œà¤¼ à¤”à¤° à¤‰à¤¨à¤•à¥€ à¤ªà¤°à¤«à¥‡à¤•à¥à¤Ÿ à¤¡à¤¿à¤œà¤¼à¤¾à¤‡à¤¨ à¤¸à¥‡à¤Ÿà¤¿à¤‚à¤—à¥à¤¸
+            # तीनों साइज़ और उनकी परफेक्ट डिज़ाइन सेटिंग्स
             if slide_format == "20:9 (Cinematic)":
                 prs.slide_width = Inches(13.333)
                 prs.slide_height = Inches(6.0)
@@ -231,7 +231,7 @@ if st.button("ðŸš€ Master PPT Generate Karein"):
                 tf_opt = opt_box.text_frame
                 tf_opt.word_wrap = True
 
-                options = q['options'] if q['options'] else ["(A) à¤µà¤¿à¤•à¤²à¥à¤ª 1", "(B) à¤µà¤¿à¤•à¤²à¥à¤ª 2", "(C) à¤µà¤¿à¤•à¤²à¥à¤ª 3", "(D) à¤µà¤¿à¤•à¤²à¥à¤ª 4"]
+                options = q['options'] if q['options'] else ["(A) विकल्प 1", "(B) विकल्प 2", "(C) विकल्प 3", "(D) विकल्प 4"]
                 for opt_idx, opt in enumerate(options):
                     if opt_idx == 0:
                         p = tf_opt.paragraphs[0]
@@ -271,7 +271,7 @@ if st.button("ðŸš€ Master PPT Generate Karein"):
                 tf_ans = ans_banner.text_frame
                 tf_ans.word_wrap = True
                 p_ans = tf_ans.paragraphs[0]
-                p_ans.text = q['answer'] if q['answer'] else "à¤‰à¤¤à¥à¤¤à¤°: (à¤¸à¤¹à¥€ à¤µà¤¿à¤•à¤²à¥à¤ª à¤•à¤¾ à¤¨à¤¾à¤®)"
+                p_ans.text = q['answer'] if q['answer'] else "उत्तर: (सही विकल्प का नाम)"
                 p_ans.font.name = 'Nirmala UI'
                 p_ans.font.size = ans_font_size
                 p_ans.font.bold = True
@@ -282,20 +282,20 @@ if st.button("ðŸš€ Master PPT Generate Karein"):
                 tf_exp.word_wrap = True
 
                 p_exp_title = tf_exp.paragraphs[0]
-                p_exp_title.text = "à¤µà¥à¤¯à¤¾à¤–à¥à¤¯à¤¾:"
+                p_exp_title.text = "व्याख्या:"
                 p_exp_title.font.name = 'Nirmala UI'
                 p_exp_title.font.size = Pt(26)
                 p_exp_title.font.bold = True
                 p_exp_title.font.color.rgb = RGBColor(30, 41, 59)
 
-                expl_lines = q['explanation'][:3] if q['explanation'] else ["à¤®à¤¹à¤¤à¥à¤µà¤ªà¥‚à¤°à¥à¤£ à¤µà¥à¤¯à¤¾à¤–à¥à¤¯à¤¾ à¤¬à¤¿à¤‚à¤¦à¥ à¤¯à¤¹à¤¾à¤ à¤†à¤à¤‚à¤—à¥‡à¥¤"]
+                expl_lines = q['explanation'][:3] if q['explanation'] else ["महत्वपूर्ण व्याख्या बिंदु यहाँ आएंगे।"]
 
                 for line_idx, exp_line in enumerate(expl_lines):
                     p_exp = tf_exp.add_paragraph()
                     p_exp.space_before = Pt(6)
                     p_exp.line_spacing = 1.25
                     
-                    p_exp.text = f"â€¢ {exp_line}" if not exp_line.startswith('â€¢') else exp_line
+                    p_exp.text = f"• {exp_line}" if not exp_line.startswith('•') else exp_line
                     p_exp.font.name = 'Nirmala UI'
                     p_exp.font.size = exp_font_size
                     p_exp.font.color.rgb = RGBColor(0, 0, 0)
@@ -304,9 +304,9 @@ if st.button("ðŸš€ Master PPT Generate Karein"):
             prs.save(ppt_stream)
             ppt_stream.seek(0)
 
-            st.success("ðŸŽ‰ à¤†à¤ªà¤•à¥€ à¤®à¤¾à¤¸à¥à¤Ÿà¤° PPT à¤¸à¤«à¤²à¤¤à¤¾àªªà¥‚à¤°à¥à¤µà¤• à¤¤à¥ˆà¤¯à¤¾à¤° à¤¹à¥‹ à¤—à¤ˆ à¤¹à¥ˆ!")
+            st.success("🎉 आपकी मास्टर PPT सफलताપूर्वक तैयार हो गई है!")
             st.download_button(
-                label="ðŸ“¥ PPT Download Karein",
+                label="📥 PPT Download Karein",
                 data=ppt_stream,
                 file_name="Master_Model_Paper.pptx",
                 mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
