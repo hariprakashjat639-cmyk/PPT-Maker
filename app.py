@@ -313,7 +313,7 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
         prs.save(ppt_stream)
         ppt_stream.seek(0)
 
-        # PDF Generation (Matching PPT Landscape Slide Layout, Fonts, and Theme)
+        # PDF Generation (Dynamic Page Dimensions Matching PPT Slide Ratio Exactly)
         pdf_bytes = b""
         if FPDF is not None:
             try:
@@ -337,7 +337,8 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                     p_box_w, p_q_box_w, p_opt_box_w = 8.2, 9.0, 8.8
                     p_opt_l, p_opt_t = 0.5, 2.8
 
-                pdf = FPDF(orientation='L', unit='in', format=(pdf_w, pdf_h))
+                # PPT स्लाइड डाइमेंशन के बिल्कुल बराबर PDF बनाना
+                pdf = FPDF(orientation='P', unit='in', format=(pdf_w, pdf_h))
                 pdf.set_auto_page_break(auto=False)
 
                 font_path = "Nirmala.ttf" if os.path.exists("Nirmala.ttf") else ("nirmala.ttf" if os.path.exists("nirmala.ttf") else None)
@@ -348,8 +349,8 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                     font_name = "Nirmala"
 
                 for q in parsed_questions:
-                    # PDF SLIDE 1: Question + Options (Same as PPT Slide 1)
-                    pdf.add_page(orientation='L', format=(pdf_w, pdf_h))
+                    # PDF SLIDE 1: Question + Options (Exact PPT Slide 1 Layout)
+                    pdf.add_page()
                     
                     # Question Text (Red, Bold)
                     pdf.set_font(font_name, style="B" if font_path else "B", size=p_q_font)
@@ -366,15 +367,15 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                         pdf.multi_cell(w=p_opt_box_w, h=p_opt_font/72 * 1.3, text=opt, border=0, align='L')
                         pdf.set_y(pdf.get_y() + 0.08)
 
-                    # PDF SLIDE 2: Answer + Explanation Card (Same as PPT Slide 2)
-                    pdf.add_page(orientation='L', format=(pdf_w, pdf_h))
+                    # PDF SLIDE 2: Answer + Explanation Card (Exact PPT Slide 2 Layout)
+                    pdf.add_page()
 
-                    # Card Background (Safe Drawing)
+                    # Card Background
                     pdf.set_fill_color(248, 250, 252)
                     pdf.set_draw_color(203, 213, 225)
                     draw_safe_rect(pdf, 0.8, 0.5, p_card_w, p_card_h, style='FD', r=0.2)
 
-                    # Answer Banner (Safe Drawing)
+                    # Answer Banner
                     pdf.set_fill_color(22, 163, 74)
                     pdf.set_draw_color(22, 163, 74)
                     draw_safe_rect(pdf, 1.1, 0.8, p_box_w, 1.1, style='F', r=0.15)
