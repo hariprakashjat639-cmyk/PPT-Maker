@@ -306,31 +306,50 @@ if st.button("🚀 Master PPT Generate Karein"):
             prs.save(ppt_stream)
             ppt_stream.seek(0)
             
-            # PDF Generation
+            # PDF Generation (Fix for Horizontal Space & Compatibility)
             pdf_bytes = b""
             if FPDF is not None:
-                pdf = FPDF()
-                pdf.add_page()
-                pdf.set_auto_page_break(auto=True, margin=15)
-                
-                # Hindi font handling (Requires a Hindi unicode font in folder)
                 try:
-                    pdf.add_font("Nirmala", style="", fname="Nirmala.ttf", uni=True)
-                    pdf.set_font("Nirmala", size=12)
-                except:
-                    # Fallback font (may show errors for pure Hindi characters without font file)
-                    pdf.set_font("Arial", size=12)
-                
-                for q in parsed_questions:
-                    pdf.multi_cell(0, 10, txt=q['question'].encode('latin-1', 'replace').decode('latin-1'))
-                    for opt in q['options']:
-                        pdf.multi_cell(0, 8, txt=opt.encode('latin-1', 'replace').decode('latin-1'))
-                    pdf.multi_cell(0, 10, txt=q['answer'].encode('latin-1', 'replace').decode('latin-1'))
-                    for exp in q['explanation']:
-                        pdf.multi_cell(0, 8, txt="Explanation: " + exp.encode('latin-1', 'replace').decode('latin-1'))
-                    pdf.ln(10)
-                
-                pdf_bytes = pdf.output(dest='S').encode('latin-1')
+                    pdf = FPDF()
+                    pdf.add_page()
+                    pdf.set_auto_page_break(auto=True, margin=15)
+                    
+                    try:
+                        pdf.add_font("Nirmala", style="", fname="Nirmala.ttf", uni=True)
+                        pdf.set_font("Nirmala", size=12)
+                    except:
+                        pdf.set_font("Helvetica", size=11)
+                    
+                    epw = pdf.epw
+                    
+                    for q in parsed_questions:
+                        q_txt = q['question'].encode('latin-1', 'replace').decode('latin-1')
+                        pdf.multi_cell(w=epw, h=8, text=q_txt)
+                        pdf.ln(2)
+                        
+                        for opt in q['options']:
+                            opt_txt = opt.encode('latin-1', 'replace').decode('latin-1')
+                            pdf.multi_cell(w=epw, h=6, text=opt_txt)
+                            pdf.ln(1)
+                            
+                        if q['answer']:
+                            ans_txt = q['answer'].encode('latin-1', 'replace').decode('latin-1')
+                            pdf.multi_cell(w=epw, h=8, text=ans_txt)
+                            pdf.ln(2)
+                            
+                        for exp in q['explanation']:
+                            exp_txt = f"Explanation: {exp}".encode('latin-1', 'replace').decode('latin-1')
+                            pdf.multi_cell(w=epw, h=6, text=exp_txt)
+                            pdf.ln(1)
+                            
+                        pdf.ln(6)
+                    
+                    try:
+                        pdf_bytes = bytes(pdf.output())
+                    except TypeError:
+                        pdf_bytes = pdf.output(dest='S').encode('latin-1')
+                except Exception as e:
+                    st.error(f"PDF बनाने में त्रुटि: {e}")
 
             st.success("🎉 आपकी मास्टर PPT और PDF सफलताપूर्वक तैयार हो गई है!")
             
@@ -346,7 +365,7 @@ if st.button("🚀 Master PPT Generate Karein"):
                 )
             
             with col2:
-                if FPDF is not None:
+                if FPDF is not None and pdf_bytes:
                     st.download_button(
                         label="📥 PDF Download Karein",
                         data=pdf_bytes,
@@ -354,4 +373,4 @@ if st.button("🚀 Master PPT Generate Karein"):
                         mime="application/pdf"
                     )
                 else:
-                    st.error("⚠️ PDF जनरेट करने के लिए 'fpdf' लाइब्रेरी इन्स्टॉल करें (pip install fpdf)")
+                    st.error("⚠️ PDF जनरेट करने के लिए 'fpdf2' लाइब्रेरी इन्स्टॉल करें")
