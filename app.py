@@ -10,7 +10,7 @@ from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 
-# PDF Generation via ReportLab with Native Devanagari Shaping Engine Support
+# PDF Generation via ReportLab
 try:
     from reportlab.pdfgen import canvas
     from reportlab.pdfbase import pdfmetrics
@@ -19,13 +19,6 @@ try:
     REPORTLAB_AVAILABLE = True
 except ImportError:
     REPORTLAB_AVAILABLE = False
-
-# Try loading uharfbuzz for complex text shaping (Hindi fix)
-try:
-    import uharfbuzz as hb
-    HARFBUZZ_AVAILABLE = True
-except ImportError:
-    HARFBUZZ_AVAILABLE = False
 
 # Document & Image Processing
 try:
@@ -61,7 +54,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("📊 Master Offline Multi-Format PPT & PDF Maker (2026)")
-st.write("फाइल अपलोड करें या सीधे टेक्स्ट पेस्ट करें। शुद्ध हिंदी फॉन्ट रेंडरिंग और परफेक्ट स्लाइड लेआउट के साथ PPT व PDF पाएँ!")
+st.write("फाइल अपलोड करें या सीधे टेक्स्ट पेस्ट करें। शुद्ध हिंदी फॉन्ट रेंडरिंग और परफेक्ट लेआउट के साथ PPT व PDF प्राप्त करें!")
 
 if "parsed_questions" not in st.session_state:
     st.session_state.parsed_questions = []
@@ -297,13 +290,12 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
         prs.save(ppt_stream)
         ppt_stream.seek(0)
 
-        # 2. PDF Generation with Precise Slide Matching & Hindi Text Fix
+        # 2. PDF Generation via ReportLab
         pdf_bytes = b""
         if REPORTLAB_AVAILABLE:
             try:
                 pdf_buffer = io.BytesIO()
                 
-                # Dynamic PDF Slide Dimensions (Matching PPT Exactly)
                 if slide_format == "20:9 (Cinematic)":
                     page_w, page_h = 13.333 * 72, 6.0 * 72
                     q_sz, opt_sz, ans_sz, exp_sz = 26, 22, 18, 22
@@ -351,40 +343,34 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
 
                 for q in parsed_questions:
                     # ================= PAGE 1: Question + Options =================
-                    # Red Question Text
                     q_top_y = page_h - (0.6 * 72)
                     opt_start_y = draw_wrapped_text(c, q['question'], 0.5 * 72, q_top_y, page_w - (1.0 * 72), hindi_font, q_sz, colors.HexColor('#DC2626')) - 12
 
-                    # Black Options Text
                     for opt in q['options']:
                         opt_start_y = draw_wrapped_text(c, opt, 0.8 * 72, opt_start_y, page_w - (1.5 * 72), hindi_font, opt_sz, colors.black) - 8
 
                     c.showPage()
 
                     # ================= PAGE 2: Answer + Explanation Card =================
-                    # Soft Gray Card Background
                     c.setFillColor(colors.HexColor('#F8FAFC'))
                     c.setStrokeColor(colors.HexColor('#CBD5E1'))
                     c.roundRect(0.8 * 72, 0.5 * 72, page_w - (1.6 * 72), page_h - (1.0 * 72), 12, fill=1, stroke=1)
 
-                    # Green Answer Banner Box
                     c.setFillColor(colors.HexColor('#16A34A'))
                     c.setStrokeColor(colors.HexColor('#16A34A'))
                     banner_top_y = page_h - (0.8 * 72)
                     banner_height = 1.0 * 72
                     c.roundRect(1.1 * 72, banner_top_y - banner_height, page_w - (2.2 * 72), banner_height, 8, fill=1, stroke=1)
 
-                    # White Answer Text Inside Banner
                     ans_text = q['answer'] if q['answer'] else "उत्तर उपलब्ध नहीं"
                     draw_wrapped_text(c, ans_text, 1.3 * 72, banner_top_y - (0.35 * 72), page_w - (2.6 * 72), hindi_font, ans_sz, colors.white)
 
-                    # Explanation Heading
+                    # Explanation Heading (FIXED: Added missing "व्याख्या:" string argument)
                     exp_heading_y = banner_top_y - banner_height - (0.4 * 72)
                     c.setFont(hindi_font, 22)
                     c.setFillColor(colors.black)
-                    c.drawString(1.1 * 72, exp_heading_y)
+                    c.drawString(1.1 * 72, exp_heading_y, "व्याख्या:")
 
-                    # Explanation Bullet Points
                     expl_lines = q['explanation'][:3] if q['explanation'] else ["कोई व्याख्या दर्ज नहीं है।"]
                     curr_exp_y = exp_heading_y - (0.35 * 72)
                     for exp_line in expl_lines:
