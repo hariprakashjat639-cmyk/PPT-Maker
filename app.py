@@ -45,8 +45,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Master Offline Multi-Format PPT & PDF Maker (2026)")
-st.write("फाइल अपलोड करें या टेक्स्ट पेस्ट करें। सटीक फॉन्ट साइज़, परफेक्ट कार्ड डिज़ाइन और 100% सेम स्टाइल की PPT व PDF जनरेट करें!")
+st.title("📊 Master Offline Multi-Format PPT & PDF Maker")
+st.write("फाइल अपलोड करें या सीधे टेक्स्ट पेस्ट करें। यह आपके पुराने सटीक स्टाइल वाली PPT और 100% सेम लेआउट वाली PDF तैयार करेगा!")
 
 if "parsed_questions" not in st.session_state:
     st.session_state.parsed_questions = []
@@ -61,10 +61,10 @@ slide_format = st.sidebar.selectbox(
 
 input_choice = st.sidebar.radio(
     "डेटा इनपुट का तरीका चुनें:",
-    ["📁 File Upload (.txt, .pdf, .docx, Image)", "✍️ Direct Text Paste"]
+    ["📁 File Upload Karein (.txt, .pdf, .docx, Image)", "✍️ Direct Text Paste Karein"]
 )
 
-# --- टेक्स्ट पार्सिंग फंक्शन ---
+# --- टेक्स्ट पार्सिंग फंक्शन (आपके पुराने लॉजिक के अनुसार) ---
 def double_verify_and_parse(text):
     questions = []
     lines = [line.strip() for line in text.split('\n') if line.strip()]
@@ -76,10 +76,10 @@ def double_verify_and_parse(text):
     exp_pattern = re.compile(r'^(व्याख्या|Explanation|Exp|स्पष्टीकरण)[\s:\-]', re.IGNORECASE)
 
     for line in lines:
-        if q_pattern.match(line):
+        if q_pattern.match(line) or (current_q and line.startswith('प्रश्न')):
             if current_q and current_q['question']:
                 while len(current_q['options']) < 4:
-                    current_q['options'].append(f"({chr(65+len(current_q['options']))}) विकल्प उपलब्ध नहीं")
+                    current_q['options'].append(f"({len(current_q['options']) + 1}) विकल्प उपलब्ध नहीं")
                 questions.append(current_q)
             current_q = {'question': line, 'options': [], 'answer': '', 'explanation': []}
             continue
@@ -112,7 +112,7 @@ def double_verify_and_parse(text):
 
     if current_q and current_q['question']:
         while len(current_q['options']) < 4:
-            current_q['options'].append(f"({chr(65+len(current_q['options']))}) विकल्प उपलब्ध नहीं")
+            current_q['options'].append(f"({len(current_q['options']) + 1}) विकल्प उपलब्ध नहीं")
         questions.append(current_q)
         
     return questions
@@ -133,9 +133,9 @@ col_input, col_preview = st.columns([1, 1])
 
 with col_input:
     st.subheader("📥 इनपुट डेटा")
-    if input_choice == "📁 File Upload (.txt, .pdf, .docx, Image)":
+    if input_choice == "📁 File Upload Karein (.txt, .pdf, .docx, Image)":
         uploaded_file = st.file_uploader(
-            "फाइल चुनें (.txt, .pdf, .docx, .png, .jpg, .jpeg)", 
+            "File Upload Karein (.txt, .pdf, .docx, .png, .jpg, .jpeg)", 
             type=["txt", "pdf", "docx", "png", "jpg", "jpeg"]
         )
         if uploaded_file is not None:
@@ -159,12 +159,12 @@ with col_input:
                         image = Image.open(io.BytesIO(file_bytes))
                         raw_text = pytesseract.image_to_string(image, lang='hin+eng')
             except Exception as e:
-                st.error(f"फाइल एरर: {e}")
+                st.error(f"File reading error: {e}")
     else:
         raw_text = st.text_area(
             "यहाँ प्रश्न, विकल्प, उत्तर और व्याख्या पेस्ट करें:",
             height=300,
-            placeholder="प्रश्न 1: 1857 की क्रांति के दौरान कोटा में विद्रोह का नेतृत्व किसने किया था?\n(A) जयदयाल और मेहराब खान\n(B) रावत केसरी सिंह\n(C) हीरालाल\n(D) ठाकुर कुशाल सिंह\nउत्तर: (A) जयदयाल और मेहराब खान\nव्याख्या: कोटा में 15 अक्टूबर 1857 को विद्रोह हुआ था।"
+            placeholder="प्रश्न 1: भारत की राजधानी क्या है?\n(A) मुंबई\n(B) दिल्ली\n(C) कोलकाता\n(D) चेन्नई\nउत्तर: (B) दिल्ली\nव्याख्या: दिल्ली भारत की राष्ट्रीय राजधानी है।"
         )
 
     if st.button("🔍 डेटा पार्स करें"):
@@ -197,40 +197,72 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
     if not st.session_state.parsed_questions:
         st.warning("⚠️ कोई प्रश्न पार्स नहीं हुआ है!")
     else:
-        with st.spinner("PPT और शुद्ध हिंदी PDF जनरेट की जा रही है..."):
+        with st.spinner("आपकी पुरानी सटीक स्टाइल में PPT और PDF जनरेट की जा रही है..."):
             parsed_questions = st.session_state.parsed_questions
             
-            # PPT Generation
             prs = Presentation()
             
-            # Sizing & Font Style Fine-tuning
+            # --- आपके पुरानी फाइल वाली EXACT डायमेंशन और साइज़ ---
             if slide_format == "20:9 (Cinematic)":
-                prs.slide_width, prs.slide_height = Inches(13.333), Inches(6.0)
-                q_font_size, opt_font_size, ans_font_size, exp_font_size = Pt(30), Pt(26), Pt(22), Pt(24)
-                card_width, card_height = Inches(12.333), Inches(5.0)
-                box_width, q_box_width, opt_box_width = Inches(11.733), Inches(12.3), Inches(12.0)
-                exp_box_height, opt_left, opt_top, opt_space_before = Inches(3.0), Inches(0.8), Inches(2.3), Pt(4)
+                prs.slide_width = Inches(13.333)
+                prs.slide_height = Inches(6.0)
+                q_font_size = Pt(32)
+                opt_font_size = Pt(30)
+                ans_font_size = Pt(23)
+                exp_font_size = Pt(30)
+                card_width = Inches(12.333)
+                card_height = Inches(5.0)
+                box_width = Inches(11.733)
+                q_box_width = Inches(12.3)
+                opt_box_width = Inches(12.0)
+                exp_box_height = Inches(3.2)
+                opt_left = Inches(0.9)
+                opt_top = Inches(2.5)
+                opt_space_before = Pt(2)
+
             elif slide_format == "16:9 (Widescreen)":
-                prs.slide_width, prs.slide_height = Inches(13.333), Inches(7.5)
-                q_font_size, opt_font_size, ans_font_size, exp_font_size = Pt(36), Pt(32), Pt(26), Pt(28)
-                card_width, card_height = Inches(11.733), Inches(6.4)
-                box_width, q_box_width, opt_box_width = Inches(11.133), Inches(12.3), Inches(12.0)
-                exp_box_height, opt_left, opt_top, opt_space_before = Inches(4.2), Inches(0.8), Inches(2.7), Pt(6)
-            else:  # 4:3 Standard
-                prs.slide_width, prs.slide_height = Inches(10.0), Inches(7.5)
-                q_font_size, opt_font_size, ans_font_size, exp_font_size = Pt(28), Pt(24), Pt(22), Pt(22)
-                card_width, card_height = Inches(8.8), Inches(6.4)
-                box_width, q_box_width, opt_box_width = Inches(8.2), Inches(9.0), Inches(8.8)
-                exp_box_height, opt_left, opt_top, opt_space_before = Inches(4.2), Inches(0.5), Inches(2.5), Pt(4)
+                prs.slide_width = Inches(13.333)
+                prs.slide_height = Inches(7.5)
+                q_font_size = Pt(40)
+                opt_font_size = Pt(40)
+                ans_font_size = Pt(28)
+                exp_font_size = Pt(32)
+                card_width = Inches(11.733)
+                card_height = Inches(6.4)
+                box_width = Inches(11.133)
+                q_box_width = Inches(12.3)
+                opt_box_width = Inches(12.0)
+                exp_box_height = Inches(4.5)
+                opt_left = Inches(0.8)
+                opt_top = Inches(3.0)
+                opt_space_before = Pt(8)
 
-            blank_layout = prs.slide_layouts[6]
+            else:  # 4:3 (Standard)
+                prs.slide_width = Inches(10)
+                prs.slide_height = Inches(7.5)
+                q_font_size = Pt(30)
+                opt_font_size = Pt(28)
+                ans_font_size = Pt(24)
+                exp_font_size = Pt(24)
+                card_width = Inches(8.8)
+                card_height = Inches(6.4)
+                box_width = Inches(8.2)
+                q_box_width = Inches(9.0)
+                opt_box_width = Inches(8.8)
+                exp_box_height = Inches(4.5)
+                opt_left = Inches(0.5)
+                opt_top = Inches(2.8)
+                opt_space_before = Pt(6)
 
-            for q in parsed_questions:
-                # ================= SLIDE 1: QUESTION & OPTIONS =================
+            blank_layout = prs.slide_layouts[6] 
+
+            for idx, q in enumerate(parsed_questions):
+                # ==========================================
+                # SLIDE 1: Question + Options (EXACT OLD STYLE)
+                # ==========================================
                 slide1 = prs.slides.add_slide(blank_layout)
-                
-                # Question Box
-                q_box = slide1.shapes.add_textbox(Inches(0.5), Inches(0.4), q_box_width, Inches(2.0))
+
+                q_box = slide1.shapes.add_textbox(Inches(0.5), Inches(0.4), q_box_width, Inches(2.5))
                 tf1 = q_box.text_frame
                 tf1.word_wrap = True
                 p1 = tf1.paragraphs[0]
@@ -238,67 +270,81 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                 p1.font.name = 'Nirmala UI'
                 p1.font.size = q_font_size
                 p1.font.bold = True
-                p1.font.color.rgb = RGBColor(255, 0, 0)  # Classic Red
+                p1.font.color.rgb = RGBColor(255, 0, 0)  # Pure Red (#FF0000)
+                p1.line_spacing = 1.3
 
-                # Options Box
-                opt_box = slide1.shapes.add_textbox(opt_left, opt_top, opt_box_width, Inches(4.5))
+                opt_box = slide1.shapes.add_textbox(opt_left, opt_top, opt_box_width, Inches(4.3))
                 tf_opt = opt_box.text_frame
                 tf_opt.word_wrap = True
 
-                for opt_idx, opt in enumerate(q['options']):
-                    p = tf_opt.paragraphs[0] if opt_idx == 0 else tf_opt.add_paragraph()
-                    if opt_idx > 0:
+                options = q['options'] if q['options'] else ["(A) विकल्प 1", "(B) विकल्प 2", "(C) विकल्प 3", "(D) विकल्प 4"]
+                for opt_idx, opt in enumerate(options):
+                    if opt_idx == 0:
+                        p = tf_opt.paragraphs[0]
+                    else:
+                        p = tf_opt.add_paragraph()
                         p.space_before = opt_space_before
+                    
                     p.text = opt
                     p.font.name = 'Nirmala UI'
                     p.font.size = opt_font_size
                     p.font.bold = True
-                    p.font.color.rgb = RGBColor(0, 0, 0)  # Classic Black
+                    p.font.color.rgb = RGBColor(0, 0, 0)
+                    p.line_spacing = 1.4
 
-                # ================= SLIDE 2: ANSWER & EXPLANATION CARD =================
+                # ==========================================
+                # SLIDE 2: Answer + Explanation (EXACT OLD STYLE)
+                # ==========================================
                 slide2 = prs.slides.add_slide(blank_layout)
-                
-                # Outer Gray Card
-                card = slide2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), Inches(0.5), card_width, card_height)
+
+                card = slide2.shapes.add_shape(
+                    MSO_SHAPE.ROUNDED_RECTANGLE, 
+                    Inches(0.8), Inches(0.5), card_width, card_height
+                )
                 card.fill.solid()
                 card.fill.fore_color.rgb = RGBColor(248, 250, 252)
                 card.line.color.rgb = RGBColor(203, 213, 225)
+                card.line.width = Pt(1.5)
 
-                # Green Answer Banner
-                ans_banner = slide2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1.1), Inches(0.8), box_width, Inches(1.1))
+                ans_banner = slide2.shapes.add_shape(
+                    MSO_SHAPE.ROUNDED_RECTANGLE,
+                    Inches(1.1), Inches(0.8), box_width, Inches(1.1)
+                )
                 ans_banner.fill.solid()
-                ans_banner.fill.fore_color.rgb = RGBColor(22, 163, 74)
+                ans_banner.fill.fore_color.rgb = RGBColor(22, 163, 74) # Green Banner
                 ans_banner.line.color.rgb = RGBColor(22, 163, 74)
 
                 tf_ans = ans_banner.text_frame
                 tf_ans.word_wrap = True
                 p_ans = tf_ans.paragraphs[0]
-                p_ans.text = q['answer'] if q['answer'] else "उत्तर उपलब्ध नहीं"
+                p_ans.text = q['answer'] if q['answer'] else "उत्तर: (सही विकल्प का नाम)"
                 p_ans.font.name = 'Nirmala UI'
                 p_ans.font.size = ans_font_size
                 p_ans.font.bold = True
-                p_ans.font.color.rgb = RGBColor(255, 255, 255)  # White Text
+                p_ans.font.color.rgb = RGBColor(255, 255, 255)
 
-                # Explanation Box
                 exp_box = slide2.shapes.add_textbox(Inches(1.1), Inches(2.1), box_width, exp_box_height)
                 tf_exp = exp_box.text_frame
                 tf_exp.word_wrap = True
-                
+
                 p_exp_title = tf_exp.paragraphs[0]
                 p_exp_title.text = "व्याख्या:"
                 p_exp_title.font.name = 'Nirmala UI'
                 p_exp_title.font.size = Pt(26)
                 p_exp_title.font.bold = True
-                p_exp_title.font.color.rgb = RGBColor(0, 0, 0)
+                p_exp_title.font.color.rgb = RGBColor(30, 41, 59)
 
-                expl_lines = q['explanation'][:3] if q['explanation'] else ["कोई व्याख्या दर्ज नहीं है।"]
-                for exp_line in expl_lines:
+                expl_lines = q['explanation'][:3] if q['explanation'] else ["महत्वपूर्ण व्याख्या बिंदु यहाँ आएंगे।"]
+
+                for line_idx, exp_line in enumerate(expl_lines):
                     p_exp = tf_exp.add_paragraph()
                     p_exp.space_before = Pt(6)
+                    p_exp.line_spacing = 1.25
+                    
                     p_exp.text = f"• {exp_line}" if not exp_line.startswith('•') else exp_line
                     p_exp.font.name = 'Nirmala UI'
                     p_exp.font.size = exp_font_size
-                    p_exp.font.color.rgb = RGBColor(30, 41, 59)
+                    p_exp.font.color.rgb = RGBColor(0, 0, 0)
 
             # Save PPT Stream
             ppt_stream = io.BytesIO()
@@ -318,7 +364,7 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                         with open(temp_pdf_path, "rb") as f:
                             pdf_bytes = f.read()
 
-        st.success("🎉 आपकी PPTX और 100% सटीक स्टाइल वाली PDF तैयार हैं!")
+        st.success("🎉 आपकी पुरानी स्टाइल वाली PPTX और 100% सेम डिज़ाइन वाली PDF तैयार हैं!")
 
         c1, c2 = st.columns(2)
         with c1:
@@ -339,4 +385,4 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                     use_container_width=True
                 )
             else:
-                st.warning("⚠️ PDF कन्वर्जन फेल हुआ। कृपया सुनिश्चित करें कि 'packages.txt' फाइल गिटहब में मौजूद है।")
+                st.warning("⚠️ PDF कन्वर्जन फेल हुआ। कृपया सुनिश्चित करें कि 'packages.txt' में libreoffice मौजूद है।")
