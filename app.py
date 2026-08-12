@@ -11,7 +11,8 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
-from pptx.oxml.ns import qn  # XML लेवल पर हिंदी/देवनागरी फॉन्ट सेट करने के लिए
+from pptx.oxml.ns import qn 
+from pptx.oxml.xmlchemy import OxmlElement  # XML एलिमेंट्स सही तरीके से बनाने के लिए
 
 # Document & Image Processing
 try:
@@ -46,8 +47,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Master Offline Multi-Format PPT & PDF Maker (2026)")
-st.write("फाइल अपलोड करें या सीधे टेक्स्ट पेस्ट करें। यह आपके पुराने सटीक स्टाइल वाली PPT और 100% सेम लेआउट वाली PDF तैयार करेगा!")
+st.title("📊 Master Offline Multi-Format PPT & PDF Maker")
+st.write("फाइल अपलोड करें या सीधे टेक्स्ट पेस्ट करें। बिना किसी एरर के पावरपॉइंट PPT और PDF जनरेट करें!")
 
 if "parsed_questions" not in st.session_state:
     st.session_state.parsed_questions = []
@@ -65,17 +66,29 @@ input_choice = st.sidebar.radio(
     ["📁 File Upload Karein (.txt, .pdf, .docx, Image)", "✍️ Direct Text Paste Karein"]
 )
 
-# --- देवनागरी/हिंदी फॉन्ट फिक्सर फंक्शन ---
+# --- सही देवनागरी/हिंदी फॉन्ट सेट करने का फिक्स ---
 def set_hindi_font(paragraph, font_name="Nirmala UI"):
-    """PPTX के Complex Script (Devanagari) को फोर्स करने के लिए विशेष फंक्शन"""
+    """Valid OpenXML child elements लगाकर Devanagari Font सेट करना"""
     paragraph.font.name = font_name
     for run in paragraph.runs:
         run.font.name = font_name
         rPr = run._r.get_or_add_rPr()
-        rPr.set(qn('a:cs'), font_name) # Complex Script (Hindi/Devanagari)
-        rPr.set(qn('a:ea'), font_name) # East Asian
+        
+        # Complex Script (Hindi/Devanagari) valid XML Element
+        cs = rPr.find(qn('a:cs'))
+        if cs is None:
+            cs = OxmlElement('a:cs')
+            rPr.append(cs)
+        cs.set('typeface', font_name)
 
-# --- टेक्स्ट पार्सिंग फंक्शन (आपके पुराने लॉजिक के अनुसार) ---
+        # East Asian valid XML Element
+        ea = rPr.find(qn('a:ea'))
+        if ea is None:
+            ea = OxmlElement('a:ea')
+            rPr.append(ea)
+        ea.set('typeface', font_name)
+
+# --- टेक्स्ट पार्सिंग फंक्शन ---
 def double_verify_and_parse(text):
     questions = []
     lines = [line.strip() for line in text.split('\n') if line.strip()]
@@ -208,12 +221,12 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
     if not st.session_state.parsed_questions:
         st.warning("⚠️ कोई प्रश्न पार्स नहीं हुआ है!")
     else:
-        with st.spinner("आपकी पुरानी सटीक स्टाइल में PPT और PDF जनरेट की जा रही है..."):
+        with st.spinner("PPT और PDF जनरेट की जा रही है..."):
             parsed_questions = st.session_state.parsed_questions
             
             prs = Presentation()
             
-            # --- आपके पुरानी फाइल वाली EXACT डायमेंशन और साइज़ ---
+            # --- परफेक्ट डायमेंशन और साइज़ ---
             if slide_format == "20:9 (Cinematic)":
                 prs.slide_width = Inches(13.333)
                 prs.slide_height = Inches(6.0)
@@ -269,7 +282,7 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
 
             for idx, q in enumerate(parsed_questions):
                 # ==========================================
-                # SLIDE 1: Question + Options (EXACT OLD STYLE)
+                # SLIDE 1: Question + Options
                 # ==========================================
                 slide1 = prs.slides.add_slide(blank_layout)
 
@@ -278,7 +291,7 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                 tf1.word_wrap = True
                 p1 = tf1.paragraphs[0]
                 p1.text = q['question']
-                set_hindi_font(p1, 'Nirmala UI')  # Devanagari Font Fix
+                set_hindi_font(p1, 'Nirmala UI')
                 p1.font.size = q_font_size
                 p1.font.bold = True
                 p1.font.color.rgb = RGBColor(255, 0, 0)
@@ -297,14 +310,14 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                         p.space_before = opt_space_before
                     
                     p.text = opt
-                    set_hindi_font(p, 'Nirmala UI')  # Devanagari Font Fix
+                    set_hindi_font(p, 'Nirmala UI')
                     p.font.size = opt_font_size
                     p.font.bold = True
                     p.font.color.rgb = RGBColor(0, 0, 0)
                     p.line_spacing = 1.4
 
                 # ==========================================
-                # SLIDE 2: Answer + Explanation (EXACT OLD STYLE)
+                # SLIDE 2: Answer + Explanation
                 # ==========================================
                 slide2 = prs.slides.add_slide(blank_layout)
 
@@ -322,14 +335,14 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                     Inches(1.1), Inches(0.8), box_width, Inches(1.1)
                 )
                 ans_banner.fill.solid()
-                ans_banner.fill.fore_color.rgb = RGBColor(22, 163, 74) # Green Banner
+                ans_banner.fill.fore_color.rgb = RGBColor(22, 163, 74)
                 ans_banner.line.color.rgb = RGBColor(22, 163, 74)
 
                 tf_ans = ans_banner.text_frame
                 tf_ans.word_wrap = True
                 p_ans = tf_ans.paragraphs[0]
                 p_ans.text = q['answer'] if q['answer'] else "उत्तर: (सही विकल्प का नाम)"
-                set_hindi_font(p_ans, 'Nirmala UI')  # Devanagari Font Fix
+                set_hindi_font(p_ans, 'Nirmala UI')
                 p_ans.font.size = ans_font_size
                 p_ans.font.bold = True
                 p_ans.font.color.rgb = RGBColor(255, 255, 255)
@@ -340,7 +353,7 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
 
                 p_exp_title = tf_exp.paragraphs[0]
                 p_exp_title.text = "व्याख्या:"
-                set_hindi_font(p_exp_title, 'Nirmala UI')  # Devanagari Font Fix
+                set_hindi_font(p_exp_title, 'Nirmala UI')
                 p_exp_title.font.size = Pt(26)
                 p_exp_title.font.bold = True
                 p_exp_title.font.color.rgb = RGBColor(30, 41, 59)
@@ -353,7 +366,7 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                     p_exp.line_spacing = 1.25
                     
                     p_exp.text = f"• {exp_line}" if not exp_line.startswith('•') else exp_line
-                    set_hindi_font(p_exp, 'Nirmala UI')  # Devanagari Font Fix
+                    set_hindi_font(p_exp, 'Nirmala UI')
                     p_exp.font.size = exp_font_size
                     p_exp.font.color.rgb = RGBColor(0, 0, 0)
 
@@ -375,7 +388,7 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                         with open(temp_pdf_path, "rb") as f:
                             pdf_bytes = f.read()
 
-        st.success("🎉 आपकी पुरानी स्टाइल वाली PPTX और 100% सेम डिज़ाइन वाली PDF तैयार हैं!")
+        st.success("🎉 एरर-फ्री PPTX और 100% सेम स्टाइल वाली PDF तैयार हैं!")
 
         c1, c2 = st.columns(2)
         with c1:
@@ -396,4 +409,4 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                     use_container_width=True
                 )
             else:
-                st.warning("⚠️ PDF कन्वर्जन फेल हुआ। कृपया सुनिश्चित करें कि 'packages.txt' में libreoffice मौजूद है।")
+                st.warning("⚠️ PDF कन्वर्जन फेल हुआ। कृपया 'packages.txt' में libreoffice चेक करें।")
