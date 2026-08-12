@@ -313,11 +313,11 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
         prs.save(ppt_stream)
         ppt_stream.seek(0)
 
-        # PDF Generation (Dynamic Page Dimensions Matching PPT Slide Ratio Exactly)
+        # PDF Generation (Matching Exact PPT Landscape Slide Layout, Styling & Dimensions)
         pdf_bytes = b""
         if FPDF is not None:
             try:
-                # PPT की चुनी गई साइज़ और थीम के अनुसार PDF पैरामीटर्स
+                # PPT की चुनी गई साइज़ और थीम के अनुसार PDF पैरामीटर्स (Inches में)
                 if slide_format == "20:9 (Cinematic)":
                     pdf_w, pdf_h = 13.333, 6.0
                     p_q_font, p_opt_font, p_ans_font, p_exp_font = 32, 30, 23, 30
@@ -337,8 +337,8 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                     p_box_w, p_q_box_w, p_opt_box_w = 8.2, 9.0, 8.8
                     p_opt_l, p_opt_t = 0.5, 2.8
 
-                # PPT स्लाइड डाइमेंशन के बिल्कुल बराबर PDF बनाना
-                pdf = FPDF(orientation='P', unit='in', format=(pdf_w, pdf_h))
+                # PPT स्लाइड डाइमेंशन के अनुसार PDF बनाएँ
+                pdf = FPDF(unit='in', format=(pdf_w, pdf_h))
                 pdf.set_auto_page_break(auto=False)
 
                 font_path = "Nirmala.ttf" if os.path.exists("Nirmala.ttf") else ("nirmala.ttf" if os.path.exists("nirmala.ttf") else None)
@@ -349,33 +349,34 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                     font_name = "Nirmala"
 
                 for q in parsed_questions:
-                    # PDF SLIDE 1: Question + Options (Exact PPT Slide 1 Layout)
+                    # ==================== PDF SLIDE 1: Question + Options ====================
                     pdf.add_page()
                     
-                    # Question Text (Red, Bold)
+                    # Question Text (Red, Bold, Exactly like PPT)
                     pdf.set_font(font_name, style="B" if font_path else "B", size=p_q_font)
                     pdf.set_text_color(255, 0, 0)
                     pdf.set_xy(0.5, 0.4)
-                    pdf.multi_cell(w=p_q_box_w, h=p_q_font/72 * 1.3, text=q['question'], border=0, align='L')
+                    pdf.multi_cell(w=p_q_box_w, h=(p_q_font/72.0)*1.25, text=q['question'], border=0, align='L')
                     
-                    # Options Text (Black, Bold)
+                    # Options Text (Black, Bold, Dynamic Overlap Prevention)
                     pdf.set_font(font_name, style="B" if font_path else "B", size=p_opt_font)
                     pdf.set_text_color(0, 0, 0)
-                    pdf.set_xy(p_opt_l, p_opt_t)
+                    opt_start_y = max(p_opt_t, pdf.get_y() + 0.15)
+                    
                     for opt in q['options']:
-                        pdf.set_x(p_opt_l)
-                        pdf.multi_cell(w=p_opt_box_w, h=p_opt_font/72 * 1.3, text=opt, border=0, align='L')
-                        pdf.set_y(pdf.get_y() + 0.08)
+                        pdf.set_xy(p_opt_l, opt_start_y)
+                        pdf.multi_cell(w=p_opt_box_w, h=(p_opt_font/72.0)*1.25, text=opt, border=0, align='L')
+                        opt_start_y = pdf.get_y() + 0.08
 
-                    # PDF SLIDE 2: Answer + Explanation Card (Exact PPT Slide 2 Layout)
+                    # ==================== PDF SLIDE 2: Answer + Explanation Card ====================
                     pdf.add_page()
 
-                    # Card Background
+                    # Card Background (Soft Slate Color)
                     pdf.set_fill_color(248, 250, 252)
                     pdf.set_draw_color(203, 213, 225)
                     draw_safe_rect(pdf, 0.8, 0.5, p_card_w, p_card_h, style='FD', r=0.2)
 
-                    # Answer Banner
+                    # Green Answer Banner
                     pdf.set_fill_color(22, 163, 74)
                     pdf.set_draw_color(22, 163, 74)
                     draw_safe_rect(pdf, 1.1, 0.8, p_box_w, 1.1, style='F', r=0.15)
@@ -385,23 +386,23 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                     pdf.set_text_color(255, 255, 255)
                     pdf.set_xy(1.2, 0.95)
                     ans_text = q['answer'] if q['answer'] else "उत्तर उपलब्ध नहीं"
-                    pdf.multi_cell(w=p_box_w - 0.2, h=p_ans_font/72 * 1.2, text=ans_text, border=0, align='L')
+                    pdf.multi_cell(w=p_box_w - 0.2, h=(p_ans_font/72.0)*1.2, text=ans_text, border=0, align='L')
 
-                    # Explanation Title
+                    # Explanation Heading ("व्याख्या:")
                     pdf.set_font(font_name, style="B" if font_path else "B", size=26)
                     pdf.set_text_color(0, 0, 0)
                     pdf.set_xy(1.1, 2.1)
-                    pdf.multi_cell(w=p_box_w, h=26/72 * 1.3, text="व्याख्या:", border=0, align='L')
+                    pdf.multi_cell(w=p_box_w, h=(26/72.0)*1.2, text="व्याख्या:", border=0, align='L')
 
-                    # Explanation Lines
+                    # Explanation Bullet Points
                     pdf.set_font(font_name, style="" if font_path else "", size=p_exp_font)
                     expl_lines = q['explanation'][:3] if q['explanation'] else ["कोई व्याख्या दर्ज नहीं है।"]
-                    curr_y = 2.6
+                    curr_exp_y = 2.6
                     for exp_line in expl_lines:
                         formatted_line = f"• {exp_line}" if not exp_line.startswith('•') else exp_line
-                        pdf.set_xy(1.1, curr_y)
-                        pdf.multi_cell(w=p_box_w, h=p_exp_font/72 * 1.3, text=formatted_line, border=0, align='L')
-                        curr_y = pdf.get_y() + 0.08
+                        pdf.set_xy(1.1, curr_exp_y)
+                        pdf.multi_cell(w=p_box_w, h=(p_exp_font/72.0)*1.25, text=formatted_line, border=0, align='L')
+                        curr_exp_y = pdf.get_y() + 0.08
 
                 pdf_bytes = bytes(pdf.output())
             except Exception as e:
