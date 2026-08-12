@@ -122,6 +122,17 @@ def double_verify_and_parse(text):
         
     return questions
 
+# --- PDF शेप हेल्प फंक्शन ---
+def draw_safe_rect(pdf_obj, x, y, w, h, style='FD', r=0.15):
+    """FPDF में बिना किसी एरर के बॉक्स ड्रॉ करने का सेफ फंक्शन"""
+    if hasattr(pdf_obj, 'rounded_rect'):
+        try:
+            pdf_obj.rounded_rect(x, y, w, h, r=r, style=style)
+            return
+        except Exception:
+            pass
+    pdf_obj.rect(x, y, w, h, style=style)
+
 # --- इनपुट सेक्शन ---
 raw_text = ""
 
@@ -358,15 +369,15 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                     # PDF SLIDE 2: Answer + Explanation Card (Same as PPT Slide 2)
                     pdf.add_page(orientation='L', format=(pdf_w, pdf_h))
 
-                    # Card Background
+                    # Card Background (Safe Drawing)
                     pdf.set_fill_color(248, 250, 252)
                     pdf.set_draw_color(203, 213, 225)
-                    pdf.rounded_rect(0.8, 0.5, p_card_w, p_card_h, r=0.2, style='FD')
+                    draw_safe_rect(pdf, 0.8, 0.5, p_card_w, p_card_h, style='FD', r=0.2)
 
-                    # Answer Banner
+                    # Answer Banner (Safe Drawing)
                     pdf.set_fill_color(22, 163, 74)
                     pdf.set_draw_color(22, 163, 74)
-                    pdf.rounded_rect(1.1, 0.8, p_box_w, 1.1, r=0.15, style='F')
+                    draw_safe_rect(pdf, 1.1, 0.8, p_box_w, 1.1, style='F', r=0.15)
 
                     # Answer Text (White, Bold)
                     pdf.set_font(font_name, style="B" if font_path else "B", size=p_ans_font)
