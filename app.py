@@ -1,19 +1,72 @@
 import streamlit as st
 import re
+import io
+import os
+import subprocess
+import platform
+import tempfile
+from PIL import Image
+
+# PowerPoint Generation
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
-import io
 
-st.set_page_config(page_title="Model Paper PPT Maker", page_icon="📊", layout="centered")
+# Document & Image Processing
+try:
+    import fitz  # PyMuPDF
+except ImportError:
+    fitz = None
 
-st.title("📊 Bilingual Text to PPT Converter App")
-st.write("Apni Text (`.txt`) file yahan upload karein aur bilkul tayar format wali PPT download karein.")
+try:
+    from docx import Document
+except ImportError:
+    Document = None
 
-uploaded_file = st.file_uploader("Text File (.txt) Upload Karein", type=["txt"])
+try:
+    import pytesseract
+except ImportError:
+    pytesseract = None
 
-def parse_txt_content(text):
+# Streamlit Page Config
+st.set_page_config(
+    page_title="Master Offline Model Paper PPT & PDF Maker",
+    page_icon="📊",
+    layout="wide"
+)
+
+st.markdown("""
+    <style>
+    [data-testid="stHeader"] {display: none;}
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .viewerBadge {display: none !important;}
+    header {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+st.title("📊 Master Offline Multi-Format PPT & PDF Maker (2026)")
+st.write("फाइल अपलोड करें या सीधे टेक्स्ट पेस्ट करें। जनरेट हुई PPT को सीधे PDF में बदलें ताकि क्वालिटी और लेआउट 100% समान रहे!")
+
+if "parsed_questions" not in st.session_state:
+    st.session_state.parsed_questions = []
+
+# --- साईडबार कॉन्फ़िगरेशन ---
+st.sidebar.header("⚙️ सेटिंग्स एवं विकल्प")
+
+slide_format = st.sidebar.selectbox(
+    "PPT & PDF Slide Size चुनें:",
+    ["16:9 (Widescreen)", "20:9 (Cinematic)", "4:3 (Standard)"]
+)
+
+input_choice = st.sidebar.radio(
+    "डेटा इनपुट का तरीका चुनें:",
+    ["📁 File Upload (.txt, .pdf, .docx, Image)", "✍️ Direct Text Paste"]
+)
+
+# --- टेक्स्ट पार्सिंग फंक्शन ---
+def double_verify_and_parse(text):
     questions = []
     lines = [line.strip() for line in text.split('\n') if line.strip()]
     
@@ -24,8 +77,10 @@ def parse_txt_content(text):
     exp_pattern = re.compile(r'^(व्याख्या|Explanation|Exp|स्पष्टीकरण)[\s:\-]', re.IGNORECASE)
 
     for line in lines:
-        if q_pattern.match(line) or (current_q and line.startswith('प्रश्न')):
+        if q_pattern.match(line):
             if current_q and current_q['question']:
+                while len(current_q['options']) < 4:
+                    current_q['options'].append(f"({chr(65+len(current_q['options']))}) विकल्प उपलब्ध नहीं")
                 questions.append(current_q)
             current_q = {'question': line, 'options': [], 'answer': '', 'explanation': []}
             continue
@@ -57,119 +112,237 @@ def parse_txt_content(text):
                 current_q['question'] += " " + line
 
     if current_q and current_q['question']:
+        while len(current_q['options']) < 4:
+            current_q['options'].append(f"({chr(65+len(current_q['options']))}) विकल्प उपलब्ध नहीं")
         questions.append(current_q)
         
     return questions
 
-if uploaded_file is not None:
-    if st.button("🚀 PPT Generate Karein"):
-        with st.spinner("PPT ban rahi hai, kripya intezar karein..."):
-            content = uploaded_file.getvalue().decode("utf-8")
-            parsed_questions = parse_txt_content(content)
+# --- PPT to PDF कन्वर्जन फंक्शन ---
+def convert_pptx_to_pdf(pptx_path, pdf_path):
+    system = platform.system()
+    try:
+        if system == "Windows":
+            import comtypes.client
+            powerpoint = comtypes.client.CreateObject("PowerPoint.Application")
+            powerpoint.Visible = 1
+            # Paths must be absolute for COM
+            abs_pptx = os.path.abspath(pptx_path)
+            abs_pdf = os.path.abspath(pdf_path)
+            deck = powerpoint.Presentations.Open(abs_pptx)
+            deck.SaveAs(abs_pdf, 32)  # 32 is the format code for PDF
+            deck.Close()
+            powerpoint.Quit()
+            return True
+        else:
+            # Linux / Mac (Requires LibreOffice installed on the system)
+            cmd = ['soffice', '--headless', '--convert-to', 'pdf', pptx_path, '--outdir', os.path.dirname(pdf_path)]
+            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            return True
+    except Exception as e:
+        st.error(f"⚠️ PDF कन्वर्जन में समस्या आई: {e}\nसुनिश्चित करें कि सिस्टम में MS PowerPoint या LibreOffice इंस्टॉल है।")
+        return False
+
+# --- इनपुट सेक्शन ---
+raw_text = ""
+col_input, col_preview = st.columns([1, 1])
+
+with col_input:
+    st.subheader("📥 इनपुट डेटा")
+    if input_choice == "📁 File Upload (.txt, .pdf, .docx, Image)":
+        uploaded_file = st.file_uploader(
+            "फाइल चुनें (.txt, .pdf, .docx, .png, .jpg, .jpeg)", 
+            type=["txt", "pdf", "docx", "png", "jpg", "jpeg"]
+        )
+        if uploaded_file is not None:
+            file_bytes = uploaded_file.getvalue()
+            file_extension = uploaded_file.name.split('.')[-1].lower()
+            try:
+                if file_extension == "txt":
+                    raw_text = file_bytes.decode("utf-8", errors="ignore")
+                elif file_extension == "pdf":
+                    if fitz:
+                        doc = fitz.open(stream=file_bytes, filetype="pdf")
+                        for page in doc:
+                            raw_text += page.get_text() + "\n"
+                elif file_extension == "docx":
+                    if Document:
+                        doc = Document(io.BytesIO(file_bytes))
+                        for para in doc.paragraphs:
+                            raw_text += para.text + "\n"
+                elif file_extension in ["png", "jpg", "jpeg"]:
+                    if pytesseract:
+                        image = Image.open(io.BytesIO(file_bytes))
+                        raw_text = pytesseract.image_to_string(image, lang='hin+eng')
+            except Exception as e:
+                st.error(f"फाइल एरर: {e}")
+    else:
+        raw_text = st.text_area(
+            "यहाँ प्रश्न, विकल्प, उत्तर और व्याख्या पेस्ट करें:",
+            height=300,
+            placeholder="प्रश्न 1: 1857 की क्रांति के दौरान कोटा में विद्रोह का नेतृत्व किसने किया था?\n(A) जयदयाल और मेहराब खान\n(B) रावत केसरी सिंह\n(C) हीरालाल\n(D) ठाकुर कुशाल सिंह\nउत्तर: (A) जयदयाल और मेहराब खान\nव्याख्या: कोटा में 15 अक्टूबर 1857 को विद्रोह हुआ था।"
+        )
+
+    if st.button("🔍 डेटा पार्स करें"):
+        if raw_text.strip():
+            st.session_state.parsed_questions = double_verify_and_parse(raw_text)
+            st.success(f"कुल {len(st.session_state.parsed_questions)} प्रश्न पार्स हुए!")
+        else:
+            st.warning("⚠️ कृपया टेक्स्ट पेस्ट करें या फाइल अपलोड करें!")
+
+with col_preview:
+    st.subheader(f"📋 पूर्वावलोकन ({len(st.session_state.parsed_questions)})")
+    if st.session_state.parsed_questions:
+        for idx, q in enumerate(st.session_state.parsed_questions):
+            with st.expander(f"प्र. {idx+1}: {q['question'][:50]}...", expanded=(idx == 0)):
+                st.write(f"**प्रश्न:** {q['question']}")
+                for opt in q['options']:
+                    st.write(opt)
+                if q['answer']:
+                    st.success(f"**{q['answer']}**")
+                if q['explanation']:
+                    st.info(f"**व्याख्या:** {' '.join(q['explanation'])}")
+                if st.button(f"🗑️ हटाएँ", key=f"del_{idx}"):
+                    st.session_state.parsed_questions.pop(idx)
+                    st.rerun()
+
+st.divider()
+
+# --- Generator ---
+if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary", use_container_width=True):
+    if not st.session_state.parsed_questions:
+        st.warning("⚠️ कोई प्रश्न पार्स नहीं हुआ है!")
+    else:
+        with st.spinner("PPT और PDF तैयार की जा रही है... कृपया प्रतीक्षा करें"):
+            parsed_questions = st.session_state.parsed_questions
             
+            # 1. PPT Generation
             prs = Presentation()
-            prs.slide_width = Inches(13.333)
-            prs.slide_height = Inches(7.5)
-            blank_layout = prs.slide_layouts[6] 
+            
+            if slide_format == "20:9 (Cinematic)":
+                prs.slide_width, prs.slide_height = Inches(13.333), Inches(6.0)
+                q_font_size, opt_font_size, ans_font_size, exp_font_size = Pt(32), Pt(30), Pt(23), Pt(30)
+                card_width, card_height = Inches(12.333), Inches(5.0)
+                box_width, q_box_width, opt_box_width = Inches(11.733), Inches(12.3), Inches(12.0)
+                exp_box_height, opt_left, opt_top, opt_space_before = Inches(3.2), Inches(0.9), Inches(2.5), Pt(2)
+            elif slide_format == "16:9 (Widescreen)":
+                prs.slide_width, prs.slide_height = Inches(13.333), Inches(7.5)
+                q_font_size, opt_font_size, ans_font_size, exp_font_size = Pt(40), Pt(40), Pt(28), Pt(32)
+                card_width, card_height = Inches(11.733), Inches(6.4)
+                box_width, q_box_width, opt_box_width = Inches(11.133), Inches(12.3), Inches(12.0)
+                exp_box_height, opt_left, opt_top, opt_space_before = Inches(4.5), Inches(0.8), Inches(3.0), Pt(8)
+            else:  # 4:3 Standard
+                prs.slide_width, prs.slide_height = Inches(10), Inches(7.5)
+                q_font_size, opt_font_size, ans_font_size, exp_font_size = Pt(30), Pt(28), Pt(24), Pt(24)
+                card_width, card_height = Inches(8.8), Inches(6.4)
+                box_width, q_box_width, opt_box_width = Inches(8.2), Inches(9.0), Inches(8.8)
+                exp_box_height, opt_left, opt_top, opt_space_before = Inches(4.5), Inches(0.5), Inches(2.8), Pt(6)
 
-            for idx, q in enumerate(parsed_questions):
-                # ==========================================
-                # SLIDE 1: Question + Options
-                # ==========================================
+            blank_layout = prs.slide_layouts[6]
+
+            for q in parsed_questions:
+                # Slide 1: Question
                 slide1 = prs.slides.add_slide(blank_layout)
-
-                q_box = slide1.shapes.add_textbox(Inches(0.5), Inches(0.4), Inches(12.3), Inches(2.5))
+                q_box = slide1.shapes.add_textbox(Inches(0.5), Inches(0.4), q_box_width, Inches(2.5))
                 tf1 = q_box.text_frame
                 tf1.word_wrap = True
                 p1 = tf1.paragraphs[0]
                 p1.text = q['question']
                 p1.font.name = 'Nirmala UI'
-                p1.font.size = Pt(40)  # Size 40
+                p1.font.size = q_font_size
                 p1.font.bold = True
-                p1.font.color.rgb = RGBColor(255, 0, 0)  # Pure Red (#FF0000)
-                p1.line_spacing = 1.3  # Line Spacing 1.30
+                p1.font.color.rgb = RGBColor(255, 0, 0)
 
-                opt_box = slide1.shapes.add_textbox(Inches(0.8), Inches(3.0), Inches(12.0), Inches(4.3))
+                opt_box = slide1.shapes.add_textbox(opt_left, opt_top, opt_box_width, Inches(4.3))
                 tf_opt = opt_box.text_frame
                 tf_opt.word_wrap = True
 
-                options = q['options'] if q['options'] else ["(A) विकल्प 1", "(B) विकल्प 2", "(C) विकल्प 3", "(D) विकल्प 4"]
-                for opt_idx, opt in enumerate(options):
-                    if opt_idx == 0:
-                        p = tf_opt.paragraphs[0]
-                    else:
-                        p = tf_opt.add_paragraph()
-                        p.space_before = Pt(8)
-                    
+                for opt_idx, opt in enumerate(q['options']):
+                    p = tf_opt.paragraphs[0] if opt_idx == 0 else tf_opt.add_paragraph()
+                    if opt_idx > 0:
+                        p.space_before = opt_space_before
                     p.text = opt
                     p.font.name = 'Nirmala UI'
-                    p.font.size = Pt(40)  # Size 40
+                    p.font.size = opt_font_size
                     p.font.bold = True
                     p.font.color.rgb = RGBColor(0, 0, 0)
-                    p.line_spacing = 1.4  # Line Spacing 1.40
 
-                # ==========================================
-                # SLIDE 2: Answer + Explanation
-                # ==========================================
+                # Slide 2: Answer Card
                 slide2 = prs.slides.add_slide(blank_layout)
-
-                card = slide2.shapes.add_shape(
-                    MSO_SHAPE.ROUNDED_RECTANGLE, 
-                    Inches(0.8), Inches(0.5), Inches(11.733), Inches(6.4)
-                )
+                card = slide2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), Inches(0.5), card_width, card_height)
                 card.fill.solid()
                 card.fill.fore_color.rgb = RGBColor(248, 250, 252)
                 card.line.color.rgb = RGBColor(203, 213, 225)
-                card.line.width = Pt(1.5)
 
-                ans_banner = slide2.shapes.add_shape(
-                    MSO_SHAPE.ROUNDED_RECTANGLE,
-                    Inches(1.1), Inches(0.8), Inches(11.133), Inches(1.1)
-                )
+                ans_banner = slide2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1.1), Inches(0.8), box_width, Inches(1.1))
                 ans_banner.fill.solid()
-                ans_banner.fill.fore_color.rgb = RGBColor(22, 163, 74) # Green Banner
-                ans_banner.line.color.rgb = RGBColor(22, 163, 74)
+                ans_banner.fill.fore_color.rgb = RGBColor(22, 163, 74)
 
                 tf_ans = ans_banner.text_frame
                 tf_ans.word_wrap = True
                 p_ans = tf_ans.paragraphs[0]
-                p_ans.text = q['answer'] if q['answer'] else "उत्तर: (सही विकल्प का नाम)"
+                p_ans.text = q['answer'] if q['answer'] else "उत्तर उपलब्ध नहीं"
                 p_ans.font.name = 'Nirmala UI'
-                p_ans.font.size = Pt(28)
+                p_ans.font.size = ans_font_size
                 p_ans.font.bold = True
                 p_ans.font.color.rgb = RGBColor(255, 255, 255)
 
-                exp_box = slide2.shapes.add_textbox(Inches(1.1), Inches(2.1), Inches(11.133), Inches(4.5))
+                exp_box = slide2.shapes.add_textbox(Inches(1.1), Inches(2.1), box_width, exp_box_height)
                 tf_exp = exp_box.text_frame
                 tf_exp.word_wrap = True
-
                 p_exp_title = tf_exp.paragraphs[0]
                 p_exp_title.text = "व्याख्या:"
                 p_exp_title.font.name = 'Nirmala UI'
                 p_exp_title.font.size = Pt(26)
                 p_exp_title.font.bold = True
-                p_exp_title.font.color.rgb = RGBColor(30, 41, 59)
 
-                expl_lines = q['explanation'][:3] if q['explanation'] else ["महत्वपूर्ण व्याख्या बिंदु यहाँ आएंगे।"]
-
-                for line_idx, exp_line in enumerate(expl_lines):
+                expl_lines = q['explanation'][:3] if q['explanation'] else ["कोई व्याख्या दर्ज नहीं है।"]
+                for exp_line in expl_lines:
                     p_exp = tf_exp.add_paragraph()
                     p_exp.space_before = Pt(6)
-                    p_exp.line_spacing = 1.25  # Line Spacing 1.25
-                    
                     p_exp.text = f"• {exp_line}" if not exp_line.startswith('•') else exp_line
                     p_exp.font.name = 'Nirmala UI'
-                    p_exp.font.size = Pt(32)  # Size 32
-                    p_exp.font.color.rgb = RGBColor(0, 0, 0)  # Full Deep Black
+                    p_exp.font.size = exp_font_size
 
+            # Save PPT to BytesIO for download
             ppt_stream = io.BytesIO()
             prs.save(ppt_stream)
             ppt_stream.seek(0)
 
-            st.success("🎉 Aapki PPT safaltapoorvak tayar ho gayi hai!")
+            # 2. Convert PPT to PDF seamlessly using System Tools
+            pdf_bytes = b""
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_pptx_path = os.path.join(temp_dir, "temp.pptx")
+                temp_pdf_path = os.path.join(temp_dir, "temp.pdf")
+                
+                # Save temp PPTX file
+                prs.save(temp_pptx_path)
+                
+                # Attempt conversion
+                if convert_pptx_to_pdf(temp_pptx_path, temp_pdf_path):
+                    if os.path.exists(temp_pdf_path):
+                        with open(temp_pdf_path, "rb") as f:
+                            pdf_bytes = f.read()
+
+        st.success("🎉 आपकी PPTX और बिल्कुल उसी स्टाइल की PDF सफलतापूर्वक तैयार हो गई हैं!")
+
+        c1, c2 = st.columns(2)
+        with c1:
             st.download_button(
-                label="📥 PPT Download Karein",
+                label="📥 PPTX डाउनलोड करें",
                 data=ppt_stream,
-                file_name="Model_Paper_Ready.pptx",
-                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                file_name="Master_Model_Paper_2026.pptx",
+                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                use_container_width=True
             )
+        with c2:
+            if pdf_bytes:
+                st.download_button(
+                    label="📄 PDF डाउनलोड करें",
+                    data=pdf_bytes,
+                    file_name="Master_Model_Paper_2026.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+            else:
+                st.warning("⚠️ PDF कन्वर्जन फेल हो गया। कृपया सुनिश्चित करें कि आपके सिस्टम पर (Windows में comtypes और MS Office, या Linux में LibreOffice) इंस्टॉल है।")
