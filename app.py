@@ -3,7 +3,6 @@ import re
 import io
 import os
 import subprocess
-import platform
 import tempfile
 from PIL import Image
 
@@ -47,7 +46,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("📊 Master Offline Multi-Format PPT & PDF Maker (2026)")
-st.write("फाइल अपलोड करें या सीधे टेक्स्ट पेस्ट करें। जनरेट हुई PPT को सीधे PDF में बदलें ताकि क्वालिटी और लेआउट 100% समान रहे!")
+st.write("फाइल अपलोड करें या सीधे टेक्स्ट पेस्ट करें। शुद्ध हिंदी और परफेक्ट स्लाइड लेआउट वाली PPT व PDF जनरेट करें!")
 
 if "parsed_questions" not in st.session_state:
     st.session_state.parsed_questions = []
@@ -118,29 +117,15 @@ def double_verify_and_parse(text):
         
     return questions
 
-# --- PPT to PDF कन्वर्जन फंक्शन ---
-def convert_pptx_to_pdf(pptx_path, pdf_path):
-    system = platform.system()
+# --- Cloud Safe PPT to PDF Conversion ---
+def convert_pptx_to_pdf_cloud(pptx_path, output_dir):
     try:
-        if system == "Windows":
-            import comtypes.client
-            powerpoint = comtypes.client.CreateObject("PowerPoint.Application")
-            powerpoint.Visible = 1
-            # Paths must be absolute for COM
-            abs_pptx = os.path.abspath(pptx_path)
-            abs_pdf = os.path.abspath(pdf_path)
-            deck = powerpoint.Presentations.Open(abs_pptx)
-            deck.SaveAs(abs_pdf, 32)  # 32 is the format code for PDF
-            deck.Close()
-            powerpoint.Quit()
-            return True
-        else:
-            # Linux / Mac (Requires LibreOffice installed on the system)
-            cmd = ['soffice', '--headless', '--convert-to', 'pdf', pptx_path, '--outdir', os.path.dirname(pdf_path)]
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            return True
+        # LibreOffice headless command for Linux Cloud Environment
+        cmd = ['soffice', '--headless', '--convert-to', 'pdf', pptx_path, '--outdir', output_dir]
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return True
     except Exception as e:
-        st.error(f"⚠️ PDF कन्वर्जन में समस्या आई: {e}\nसुनिश्चित करें कि सिस्टम में MS PowerPoint या LibreOffice इंस्टॉल है।")
+        st.error(f"⚠️ PDF कन्वर्जन में समस्या: {e}")
         return False
 
 # --- इनपुट सेक्शन ---
@@ -213,10 +198,10 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
     if not st.session_state.parsed_questions:
         st.warning("⚠️ कोई प्रश्न पार्स नहीं हुआ है!")
     else:
-        with st.spinner("PPT और PDF तैयार की जा रही है... कृपया प्रतीक्षा करें"):
+        with st.spinner("PPT और शुद्ध हिंदी PDF जनरेट की जा रही है..."):
             parsed_questions = st.session_state.parsed_questions
             
-            # 1. PPT Generation
+            # PPT Generation
             prs = Presentation()
             
             if slide_format == "20:9 (Cinematic)":
@@ -248,7 +233,7 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                 tf1.word_wrap = True
                 p1 = tf1.paragraphs[0]
                 p1.text = q['question']
-                p1.font.name = 'Nirmala UI'
+                p1.font.name = 'Liberation Sans'
                 p1.font.size = q_font_size
                 p1.font.bold = True
                 p1.font.color.rgb = RGBColor(255, 0, 0)
@@ -262,7 +247,7 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                     if opt_idx > 0:
                         p.space_before = opt_space_before
                     p.text = opt
-                    p.font.name = 'Nirmala UI'
+                    p.font.name = 'Liberation Sans'
                     p.font.size = opt_font_size
                     p.font.bold = True
                     p.font.color.rgb = RGBColor(0, 0, 0)
@@ -282,7 +267,7 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                 tf_ans.word_wrap = True
                 p_ans = tf_ans.paragraphs[0]
                 p_ans.text = q['answer'] if q['answer'] else "उत्तर उपलब्ध नहीं"
-                p_ans.font.name = 'Nirmala UI'
+                p_ans.font.name = 'Liberation Sans'
                 p_ans.font.size = ans_font_size
                 p_ans.font.bold = True
                 p_ans.font.color.rgb = RGBColor(255, 255, 255)
@@ -292,7 +277,7 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                 tf_exp.word_wrap = True
                 p_exp_title = tf_exp.paragraphs[0]
                 p_exp_title.text = "व्याख्या:"
-                p_exp_title.font.name = 'Nirmala UI'
+                p_exp_title.font.name = 'Liberation Sans'
                 p_exp_title.font.size = Pt(26)
                 p_exp_title.font.bold = True
 
@@ -301,30 +286,28 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                     p_exp = tf_exp.add_paragraph()
                     p_exp.space_before = Pt(6)
                     p_exp.text = f"• {exp_line}" if not exp_line.startswith('•') else exp_line
-                    p_exp.font.name = 'Nirmala UI'
+                    p_exp.font.name = 'Liberation Sans'
                     p_exp.font.size = exp_font_size
 
-            # Save PPT to BytesIO for download
+            # Save PPT to BytesIO
             ppt_stream = io.BytesIO()
             prs.save(ppt_stream)
             ppt_stream.seek(0)
 
-            # 2. Convert PPT to PDF seamlessly using System Tools
+            # Convert PPT to PDF using LibreOffice (Linux Server Friendly)
             pdf_bytes = b""
             with tempfile.TemporaryDirectory() as temp_dir:
                 temp_pptx_path = os.path.join(temp_dir, "temp.pptx")
                 temp_pdf_path = os.path.join(temp_dir, "temp.pdf")
                 
-                # Save temp PPTX file
                 prs.save(temp_pptx_path)
                 
-                # Attempt conversion
-                if convert_pptx_to_pdf(temp_pptx_path, temp_pdf_path):
+                if convert_pptx_to_pdf_cloud(temp_pptx_path, temp_dir):
                     if os.path.exists(temp_pdf_path):
                         with open(temp_pdf_path, "rb") as f:
                             pdf_bytes = f.read()
 
-        st.success("🎉 आपकी PPTX और बिल्कुल उसी स्टाइल की PDF सफलतापूर्वक तैयार हो गई हैं!")
+        st.success("🎉 आपकी PPTX और 100% सटीक हिंदी वाली PDF तैयार हैं!")
 
         c1, c2 = st.columns(2)
         with c1:
@@ -345,4 +328,4 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                     use_container_width=True
                 )
             else:
-                st.warning("⚠️ PDF कन्वर्जन फेल हो गया। कृपया सुनिश्चित करें कि आपके सिस्टम पर (Windows में comtypes और MS Office, या Linux में LibreOffice) इंस्टॉल है।")
+                st.warning("⚠️ PDF कन्वर्जन फेल हुआ। कृपया सुनिश्चित करें कि 'packages.txt' फाइल गिटहब में मौजूद है।")
