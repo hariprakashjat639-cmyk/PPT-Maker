@@ -46,7 +46,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("📊 Master Offline Multi-Format PPT & PDF Maker (2026)")
-st.write("फाइल अपलोड करें या सीधे टेक्स्ट पेस्ट करें। शुद्ध हिंदी और परफेक्ट स्लाइड लेआउट वाली PPT व PDF जनरेट करें!")
+st.write("फाइल अपलोड करें या टेक्स्ट पेस्ट करें। सटीक फॉन्ट साइज़, परफेक्ट कार्ड डिज़ाइन और 100% सेम स्टाइल की PPT व PDF जनरेट करें!")
 
 if "parsed_questions" not in st.session_state:
     st.session_state.parsed_questions = []
@@ -120,7 +120,6 @@ def double_verify_and_parse(text):
 # --- Cloud Safe PPT to PDF Conversion ---
 def convert_pptx_to_pdf_cloud(pptx_path, output_dir):
     try:
-        # LibreOffice headless command for Linux Cloud Environment
         cmd = ['soffice', '--headless', '--convert-to', 'pdf', pptx_path, '--outdir', output_dir]
         subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return True
@@ -204,41 +203,45 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
             # PPT Generation
             prs = Presentation()
             
+            # Sizing & Font Style Fine-tuning
             if slide_format == "20:9 (Cinematic)":
                 prs.slide_width, prs.slide_height = Inches(13.333), Inches(6.0)
-                q_font_size, opt_font_size, ans_font_size, exp_font_size = Pt(32), Pt(30), Pt(23), Pt(30)
+                q_font_size, opt_font_size, ans_font_size, exp_font_size = Pt(30), Pt(26), Pt(22), Pt(24)
                 card_width, card_height = Inches(12.333), Inches(5.0)
                 box_width, q_box_width, opt_box_width = Inches(11.733), Inches(12.3), Inches(12.0)
-                exp_box_height, opt_left, opt_top, opt_space_before = Inches(3.2), Inches(0.9), Inches(2.5), Pt(2)
+                exp_box_height, opt_left, opt_top, opt_space_before = Inches(3.0), Inches(0.8), Inches(2.3), Pt(4)
             elif slide_format == "16:9 (Widescreen)":
                 prs.slide_width, prs.slide_height = Inches(13.333), Inches(7.5)
-                q_font_size, opt_font_size, ans_font_size, exp_font_size = Pt(40), Pt(40), Pt(28), Pt(32)
+                q_font_size, opt_font_size, ans_font_size, exp_font_size = Pt(36), Pt(32), Pt(26), Pt(28)
                 card_width, card_height = Inches(11.733), Inches(6.4)
                 box_width, q_box_width, opt_box_width = Inches(11.133), Inches(12.3), Inches(12.0)
-                exp_box_height, opt_left, opt_top, opt_space_before = Inches(4.5), Inches(0.8), Inches(3.0), Pt(8)
+                exp_box_height, opt_left, opt_top, opt_space_before = Inches(4.2), Inches(0.8), Inches(2.7), Pt(6)
             else:  # 4:3 Standard
-                prs.slide_width, prs.slide_height = Inches(10), Inches(7.5)
-                q_font_size, opt_font_size, ans_font_size, exp_font_size = Pt(30), Pt(28), Pt(24), Pt(24)
+                prs.slide_width, prs.slide_height = Inches(10.0), Inches(7.5)
+                q_font_size, opt_font_size, ans_font_size, exp_font_size = Pt(28), Pt(24), Pt(22), Pt(22)
                 card_width, card_height = Inches(8.8), Inches(6.4)
                 box_width, q_box_width, opt_box_width = Inches(8.2), Inches(9.0), Inches(8.8)
-                exp_box_height, opt_left, opt_top, opt_space_before = Inches(4.5), Inches(0.5), Inches(2.8), Pt(6)
+                exp_box_height, opt_left, opt_top, opt_space_before = Inches(4.2), Inches(0.5), Inches(2.5), Pt(4)
 
             blank_layout = prs.slide_layouts[6]
 
             for q in parsed_questions:
-                # Slide 1: Question
+                # ================= SLIDE 1: QUESTION & OPTIONS =================
                 slide1 = prs.slides.add_slide(blank_layout)
-                q_box = slide1.shapes.add_textbox(Inches(0.5), Inches(0.4), q_box_width, Inches(2.5))
+                
+                # Question Box
+                q_box = slide1.shapes.add_textbox(Inches(0.5), Inches(0.4), q_box_width, Inches(2.0))
                 tf1 = q_box.text_frame
                 tf1.word_wrap = True
                 p1 = tf1.paragraphs[0]
                 p1.text = q['question']
-                p1.font.name = 'Liberation Sans'
+                p1.font.name = 'Nirmala UI'
                 p1.font.size = q_font_size
                 p1.font.bold = True
-                p1.font.color.rgb = RGBColor(255, 0, 0)
+                p1.font.color.rgb = RGBColor(255, 0, 0)  # Classic Red
 
-                opt_box = slide1.shapes.add_textbox(opt_left, opt_top, opt_box_width, Inches(4.3))
+                # Options Box
+                opt_box = slide1.shapes.add_textbox(opt_left, opt_top, opt_box_width, Inches(4.5))
                 tf_opt = opt_box.text_frame
                 tf_opt.word_wrap = True
 
@@ -247,54 +250,62 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                     if opt_idx > 0:
                         p.space_before = opt_space_before
                     p.text = opt
-                    p.font.name = 'Liberation Sans'
+                    p.font.name = 'Nirmala UI'
                     p.font.size = opt_font_size
                     p.font.bold = True
-                    p.font.color.rgb = RGBColor(0, 0, 0)
+                    p.font.color.rgb = RGBColor(0, 0, 0)  # Classic Black
 
-                # Slide 2: Answer Card
+                # ================= SLIDE 2: ANSWER & EXPLANATION CARD =================
                 slide2 = prs.slides.add_slide(blank_layout)
+                
+                # Outer Gray Card
                 card = slide2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), Inches(0.5), card_width, card_height)
                 card.fill.solid()
                 card.fill.fore_color.rgb = RGBColor(248, 250, 252)
                 card.line.color.rgb = RGBColor(203, 213, 225)
 
+                # Green Answer Banner
                 ans_banner = slide2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1.1), Inches(0.8), box_width, Inches(1.1))
                 ans_banner.fill.solid()
                 ans_banner.fill.fore_color.rgb = RGBColor(22, 163, 74)
+                ans_banner.line.color.rgb = RGBColor(22, 163, 74)
 
                 tf_ans = ans_banner.text_frame
                 tf_ans.word_wrap = True
                 p_ans = tf_ans.paragraphs[0]
                 p_ans.text = q['answer'] if q['answer'] else "उत्तर उपलब्ध नहीं"
-                p_ans.font.name = 'Liberation Sans'
+                p_ans.font.name = 'Nirmala UI'
                 p_ans.font.size = ans_font_size
                 p_ans.font.bold = True
-                p_ans.font.color.rgb = RGBColor(255, 255, 255)
+                p_ans.font.color.rgb = RGBColor(255, 255, 255)  # White Text
 
+                # Explanation Box
                 exp_box = slide2.shapes.add_textbox(Inches(1.1), Inches(2.1), box_width, exp_box_height)
                 tf_exp = exp_box.text_frame
                 tf_exp.word_wrap = True
+                
                 p_exp_title = tf_exp.paragraphs[0]
                 p_exp_title.text = "व्याख्या:"
-                p_exp_title.font.name = 'Liberation Sans'
+                p_exp_title.font.name = 'Nirmala UI'
                 p_exp_title.font.size = Pt(26)
                 p_exp_title.font.bold = True
+                p_exp_title.font.color.rgb = RGBColor(0, 0, 0)
 
                 expl_lines = q['explanation'][:3] if q['explanation'] else ["कोई व्याख्या दर्ज नहीं है।"]
                 for exp_line in expl_lines:
                     p_exp = tf_exp.add_paragraph()
                     p_exp.space_before = Pt(6)
                     p_exp.text = f"• {exp_line}" if not exp_line.startswith('•') else exp_line
-                    p_exp.font.name = 'Liberation Sans'
+                    p_exp.font.name = 'Nirmala UI'
                     p_exp.font.size = exp_font_size
+                    p_exp.font.color.rgb = RGBColor(30, 41, 59)
 
-            # Save PPT to BytesIO
+            # Save PPT Stream
             ppt_stream = io.BytesIO()
             prs.save(ppt_stream)
             ppt_stream.seek(0)
 
-            # Convert PPT to PDF using LibreOffice (Linux Server Friendly)
+            # Cloud Convert PPT to PDF
             pdf_bytes = b""
             with tempfile.TemporaryDirectory() as temp_dir:
                 temp_pptx_path = os.path.join(temp_dir, "temp.pptx")
@@ -307,7 +318,7 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                         with open(temp_pdf_path, "rb") as f:
                             pdf_bytes = f.read()
 
-        st.success("🎉 आपकी PPTX और 100% सटीक हिंदी वाली PDF तैयार हैं!")
+        st.success("🎉 आपकी PPTX और 100% सटीक स्टाइल वाली PDF तैयार हैं!")
 
         c1, c2 = st.columns(2)
         with c1:
