@@ -10,11 +10,16 @@ from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 
-# PDF Generation (fpdf2)
+# PDF Generation via ReportLab (Proper Hindi Font Rendering)
 try:
-    from fpdf import FPDF
+    from reportlab.lib.pagesizes import landscape
+    from reportlab.pdfgen import canvas
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.lib import colors
+    REPORTLAB_AVAILABLE = True
 except ImportError:
-    FPDF = None
+    REPORTLAB_AVAILABLE = False
 
 # Document & Image Processing Libraries
 try:
@@ -122,17 +127,6 @@ def double_verify_and_parse(text):
         
     return questions
 
-# --- PDF शेप हेल्प फंक्शन ---
-def draw_safe_rect(pdf_obj, x, y, w, h, style='FD', r=0.15):
-    """FPDF में बिना किसी एरर के बॉक्स ड्रॉ करने का सेफ फंक्शन"""
-    if hasattr(pdf_obj, 'rounded_rect'):
-        try:
-            pdf_obj.rounded_rect(x, y, w, h, r=r, style=style)
-            return
-        except Exception:
-            pass
-    pdf_obj.rect(x, y, w, h, style=style)
-
 # --- इनपुट सेक्शन ---
 raw_text = ""
 
@@ -217,7 +211,7 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
     else:
         parsed_questions = st.session_state.parsed_questions
         
-        # PPTX स्ट्रक्चर तैयार करना
+        # 1. PPTX Generation
         prs = Presentation()
         
         if slide_format == "20:9 (Cinematic)":
@@ -313,102 +307,106 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
         prs.save(ppt_stream)
         ppt_stream.seek(0)
 
-        # PDF Generation (Matching Exact PPT Landscape Slide Layout, Styling & Dimensions)
+        # 2. PDF Generation using ReportLab (Guarantees Perfect Hindi Rendering)
         pdf_bytes = b""
-        if FPDF is not None:
+        if REPORTLAB_AVAILABLE:
             try:
-                # PPT की चुनी गई साइज़ और थीम के अनुसार PDF पैरामीटर्स (Inches में)
+                pdf_buffer = io.BytesIO()
+                
+                # Aspect Ratio set in Points (1 inch = 72 points)
                 if slide_format == "20:9 (Cinematic)":
-                    pdf_w, pdf_h = 13.333, 6.0
-                    p_q_font, p_opt_font, p_ans_font, p_exp_font = 32, 30, 23, 30
-                    p_card_w, p_card_h = 12.333, 5.0
-                    p_box_w, p_q_box_w, p_opt_box_w = 11.733, 12.3, 12.0
-                    p_opt_l, p_opt_t = 0.9, 2.5
+                    page_w, page_h = 13.333 * 72, 6.0 * 72
+                    q_sz, opt_sz, ans_sz, exp_sz = 26, 22, 18, 22
                 elif slide_format == "16:9 (Widescreen)":
-                    pdf_w, pdf_h = 13.333, 7.5
-                    p_q_font, p_opt_font, p_ans_font, p_exp_font = 40, 40, 28, 32
-                    p_card_w, p_card_h = 11.733, 6.4
-                    p_box_w, p_q_box_w, p_opt_box_w = 11.133, 12.3, 12.0
-                    p_opt_l, p_opt_t = 0.8, 3.0
+                    page_w, page_h = 13.333 * 72, 7.5 * 72
+                    q_sz, opt_sz, ans_sz, exp_sz = 30, 26, 22, 24
                 else:  # 4:3 Standard
-                    pdf_w, pdf_h = 10.0, 7.5
-                    p_q_font, p_opt_font, p_ans_font, p_exp_font = 30, 28, 24, 24
-                    p_card_w, p_card_h = 8.8, 6.4
-                    p_box_w, p_q_box_w, p_opt_box_w = 8.2, 9.0, 8.8
-                    p_opt_l, p_opt_t = 0.5, 2.8
+                    page_w, page_h = 10.0 * 72, 7.5 * 72
+                    q_sz, opt_sz, ans_sz, exp_sz = 24, 20, 18, 20
 
-                # PPT स्लाइड डाइमेंशन के अनुसार PDF बनाएँ
-                pdf = FPDF(unit='in', format=(pdf_w, pdf_h))
-                pdf.set_auto_page_break(auto=False)
-
+                c = canvas.Canvas(pdf_buffer, pagesize=(page_w, page_h))
+                
+                # Hindi TTF Font Registration
+                hindi_font = "Helvetica"
                 font_path = "Nirmala.ttf" if os.path.exists("Nirmala.ttf") else ("nirmala.ttf" if os.path.exists("nirmala.ttf") else None)
-                font_name = "Helvetica"
                 if font_path:
-                    pdf.add_font("Nirmala", style="", fname=font_path)
-                    pdf.add_font("Nirmala", style="B", fname=font_path)
-                    font_name = "Nirmala"
+                    pdfmetrics.registerFont(TTFont('HindiFont', font_path))
+                    hindi_font = 'HindiFont'
+
+                def draw_wrapped_text(canvas_obj, text, x, y, max_width, font_name, font_size, color, leading=1.3):
+                    canvas_obj.setFont(font_name, font_size)
+                    canvas_obj.setFillColor(color)
+                    words = text.split(' ')
+                    lines = []
+                    current_line = ""
+                    for word in words:
+                        test_line = f"{current_line} {word}".strip()
+                        if canvas_obj.stringWidth(test_line, font_name, font_size) <= max_width:
+                            current_line = test_line
+                        else:
+                            if current_line:
+                                lines.append(current_line)
+                            current_line = word
+                    if current_line:
+                        lines.append(current_line)
+
+                    line_height = font_size * leading
+                    curr_y = y
+                    for line in lines:
+                        canvas_obj.drawString(x, curr_y, line)
+                        curr_y -= line_height
+                    return curr_y
 
                 for q in parsed_questions:
-                    # ==================== PDF SLIDE 1: Question + Options ====================
-                    pdf.add_page()
-                    
-                    # Question Text (Red, Bold, Exactly like PPT)
-                    pdf.set_font(font_name, style="B" if font_path else "B", size=p_q_font)
-                    pdf.set_text_color(255, 0, 0)
-                    pdf.set_xy(0.5, 0.4)
-                    pdf.multi_cell(w=p_q_box_w, h=(p_q_font/72.0)*1.25, text=q['question'], border=0, align='L')
-                    
-                    # Options Text (Black, Bold, Dynamic Overlap Prevention)
-                    pdf.set_font(font_name, style="B" if font_path else "B", size=p_opt_font)
-                    pdf.set_text_color(0, 0, 0)
-                    opt_start_y = max(p_opt_t, pdf.get_y() + 0.15)
-                    
+                    # --- PAGE 1: Question + Options ---
+                    # Question
+                    q_y = page_h - (0.6 * 72)
+                    draw_wrapped_text(c, q['question'], 0.5 * 72, q_y, page_w - (1.0 * 72), hindi_font, q_sz, colors.HexColor('#DC2626'))
+
+                    # Options
+                    opt_y = page_h - (2.8 * 72)
                     for opt in q['options']:
-                        pdf.set_xy(p_opt_l, opt_start_y)
-                        pdf.multi_cell(w=p_opt_box_w, h=(p_opt_font/72.0)*1.25, text=opt, border=0, align='L')
-                        opt_start_y = pdf.get_y() + 0.08
+                        opt_y = draw_wrapped_text(c, opt, 0.8 * 72, opt_y, page_w - (1.5 * 72), hindi_font, opt_sz, colors.black) - 8
 
-                    # ==================== PDF SLIDE 2: Answer + Explanation Card ====================
-                    pdf.add_page()
+                    c.showPage()
 
-                    # Card Background (Soft Slate Color)
-                    pdf.set_fill_color(248, 250, 252)
-                    pdf.set_draw_color(203, 213, 225)
-                    draw_safe_rect(pdf, 0.8, 0.5, p_card_w, p_card_h, style='FD', r=0.2)
+                    # --- PAGE 2: Answer + Explanation Card ---
+                    # Card Background
+                    c.setFillColor(colors.HexColor('#F8FAFC'))
+                    c.setStrokeColor(colors.HexColor('#CBD5E1'))
+                    c.roundRect(0.8 * 72, 0.5 * 72, page_w - (1.6 * 72), page_h - (1.0 * 72), 12, fill=1, stroke=1)
 
                     # Green Answer Banner
-                    pdf.set_fill_color(22, 163, 74)
-                    pdf.set_draw_color(22, 163, 74)
-                    draw_safe_rect(pdf, 1.1, 0.8, p_box_w, 1.1, style='F', r=0.15)
+                    c.setFillColor(colors.HexColor('#16A34A'))
+                    c.setStrokeColor(colors.HexColor('#16A34A'))
+                    banner_y = page_h - (1.8 * 72)
+                    c.roundRect(1.1 * 72, banner_y, page_w - (2.2 * 72), 1.0 * 72, 8, fill=1, stroke=1)
 
-                    # Answer Text (White, Bold)
-                    pdf.set_font(font_name, style="B" if font_path else "B", size=p_ans_font)
-                    pdf.set_text_color(255, 255, 255)
-                    pdf.set_xy(1.2, 0.95)
+                    # Answer Text
                     ans_text = q['answer'] if q['answer'] else "उत्तर उपलब्ध नहीं"
-                    pdf.multi_cell(w=p_box_w - 0.2, h=(p_ans_font/72.0)*1.2, text=ans_text, border=0, align='L')
+                    draw_wrapped_text(c, ans_text, 1.3 * 72, banner_y + (0.65 * 72), page_w - (2.6 * 72), hindi_font, ans_sz, colors.white)
 
-                    # Explanation Heading ("व्याख्या:")
-                    pdf.set_font(font_name, style="B" if font_path else "B", size=26)
-                    pdf.set_text_color(0, 0, 0)
-                    pdf.set_xy(1.1, 2.1)
-                    pdf.multi_cell(w=p_box_w, h=(26/72.0)*1.2, text="व्याख्या:", border=0, align='L')
+                    # Explanation Heading
+                    exp_heading_y = banner_y - (0.5 * 72)
+                    c.setFont(hindi_font, 22)
+                    c.setFillColor(colors.black)
+                    c.drawString(1.1 * 72, exp_heading_y, "व्याख्या:")
 
-                    # Explanation Bullet Points
-                    pdf.set_font(font_name, style="" if font_path else "", size=p_exp_font)
+                    # Explanation Lines
                     expl_lines = q['explanation'][:3] if q['explanation'] else ["कोई व्याख्या दर्ज नहीं है।"]
-                    curr_exp_y = 2.6
+                    curr_exp_y = exp_heading_y - (0.4 * 72)
                     for exp_line in expl_lines:
                         formatted_line = f"• {exp_line}" if not exp_line.startswith('•') else exp_line
-                        pdf.set_xy(1.1, curr_exp_y)
-                        pdf.multi_cell(w=p_box_w, h=(p_exp_font/72.0)*1.25, text=formatted_line, border=0, align='L')
-                        curr_exp_y = pdf.get_y() + 0.08
+                        curr_exp_y = draw_wrapped_text(c, formatted_line, 1.1 * 72, curr_exp_y, page_w - (2.2 * 72), hindi_font, exp_sz, colors.black) - 6
 
-                pdf_bytes = bytes(pdf.output())
+                    c.showPage()
+
+                c.save()
+                pdf_bytes = pdf_buffer.getvalue()
             except Exception as e:
-                st.error(f"PDF जनरेट करने में त्रुटि: {e}")
+                st.error(f"ReportLab PDF जनरेट करने में त्रुटि: {e}")
 
-        st.success("🎉 आपकी PPTX और PDF सफलतापूर्वक तैयार हो गई हैं!")
+        st.success("🎉 आपकी PPTX और शुद्ध हिंदी वाली PDF सफलतापूर्वक तैयार हो गई हैं!")
 
         c1, c2 = st.columns(2)
         with c1:
@@ -428,3 +426,5 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                     mime="application/pdf",
                     use_container_width=True
                 )
+            else:
+                st.info("⚠️ ReportLab इंस्टॉल करें: `pip install reportlab`")
