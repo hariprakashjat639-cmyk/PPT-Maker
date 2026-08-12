@@ -7,6 +7,12 @@ from pptx.enum.shapes import MSO_SHAPE
 import io
 from PIL import Image
 
+# PDF जनरेट करने के लिए FPDF
+try:
+    from fpdf import FPDF
+except ImportError:
+    FPDF = None
+
 # सुरक्षित रूप से वैकल्पिक लाइब्रेरीज को इम्पोर्ट करना ताकि ऐप क्रैश न हो
 try:
     import fitz  # PyMuPDF for PDF & Images
@@ -156,7 +162,6 @@ if st.button("🚀 Master PPT Generate Karein"):
             
             prs = Presentation()
             
-            # तीनों साइज़ और उनकी परफेक्ट डिज़ाइन सेटिंग्स
             if slide_format == "20:9 (Cinematic)":
                 prs.slide_width = Inches(13.333)
                 prs.slide_height = Inches(6.0)
@@ -211,9 +216,7 @@ if st.button("🚀 Master PPT Generate Karein"):
             blank_layout = prs.slide_layouts[6] 
 
             for idx, q in enumerate(parsed_questions):
-                # ==========================================
                 # SLIDE 1: Question + Options
-                # ==========================================
                 slide1 = prs.slides.add_slide(blank_layout)
 
                 q_box = slide1.shapes.add_textbox(Inches(0.5), Inches(0.4), q_box_width, Inches(2.5))
@@ -224,7 +227,7 @@ if st.button("🚀 Master PPT Generate Karein"):
                 p1.font.name = 'Nirmala UI'
                 p1.font.size = q_font_size
                 p1.font.bold = True
-                p1.font.color.rgb = RGBColor(255, 0, 0)  # Pure Red (#FF0000)
+                p1.font.color.rgb = RGBColor(255, 0, 0)
                 p1.line_spacing = 1.3
 
                 opt_box = slide1.shapes.add_textbox(opt_left, opt_top, opt_box_width, Inches(4.3))
@@ -246,9 +249,7 @@ if st.button("🚀 Master PPT Generate Karein"):
                     p.font.color.rgb = RGBColor(0, 0, 0)
                     p.line_spacing = 1.4
 
-                # ==========================================
                 # SLIDE 2: Answer + Explanation
-                # ==========================================
                 slide2 = prs.slides.add_slide(blank_layout)
 
                 card = slide2.shapes.add_shape(
@@ -265,7 +266,7 @@ if st.button("🚀 Master PPT Generate Karein"):
                     Inches(1.1), Inches(0.8), box_width, Inches(1.1)
                 )
                 ans_banner.fill.solid()
-                ans_banner.fill.fore_color.rgb = RGBColor(22, 163, 74) # Green Banner
+                ans_banner.fill.fore_color.rgb = RGBColor(22, 163, 74)
                 ans_banner.line.color.rgb = RGBColor(22, 163, 74)
 
                 tf_ans = ans_banner.text_frame
@@ -300,14 +301,57 @@ if st.button("🚀 Master PPT Generate Karein"):
                     p_exp.font.size = exp_font_size
                     p_exp.font.color.rgb = RGBColor(0, 0, 0)
 
+            # PPT Stream Save
             ppt_stream = io.BytesIO()
             prs.save(ppt_stream)
             ppt_stream.seek(0)
+            
+            # PDF Generation
+            pdf_bytes = b""
+            if FPDF is not None:
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.set_auto_page_break(auto=True, margin=15)
+                
+                # Hindi font handling (Requires a Hindi unicode font in folder)
+                try:
+                    pdf.add_font("Nirmala", style="", fname="Nirmala.ttf", uni=True)
+                    pdf.set_font("Nirmala", size=12)
+                except:
+                    # Fallback font (may show errors for pure Hindi characters without font file)
+                    pdf.set_font("Arial", size=12)
+                
+                for q in parsed_questions:
+                    pdf.multi_cell(0, 10, txt=q['question'].encode('latin-1', 'replace').decode('latin-1'))
+                    for opt in q['options']:
+                        pdf.multi_cell(0, 8, txt=opt.encode('latin-1', 'replace').decode('latin-1'))
+                    pdf.multi_cell(0, 10, txt=q['answer'].encode('latin-1', 'replace').decode('latin-1'))
+                    for exp in q['explanation']:
+                        pdf.multi_cell(0, 8, txt="Explanation: " + exp.encode('latin-1', 'replace').decode('latin-1'))
+                    pdf.ln(10)
+                
+                pdf_bytes = pdf.output(dest='S').encode('latin-1')
 
-            st.success("🎉 आपकी मास्टर PPT सफलताપूर्वक तैयार हो गई है!")
-            st.download_button(
-                label="📥 PPT Download Karein",
-                data=ppt_stream,
-                file_name="Master_Model_Paper.pptx",
-                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
-            )
+            st.success("🎉 आपकी मास्टर PPT और PDF सफलताપूर्वक तैयार हो गई है!")
+            
+            # दो डाउनलोड बटन के लिए Columns
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.download_button(
+                    label="📥 PPT Download Karein",
+                    data=ppt_stream,
+                    file_name="Master_Model_Paper.pptx",
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                )
+            
+            with col2:
+                if FPDF is not None:
+                    st.download_button(
+                        label="📥 PDF Download Karein",
+                        data=pdf_bytes,
+                        file_name="Master_Model_Paper.pdf",
+                        mime="application/pdf"
+                    )
+                else:
+                    st.error("⚠️ PDF जनरेट करने के लिए 'fpdf' लाइब्रेरी इन्स्टॉल करें (pip install fpdf)")
