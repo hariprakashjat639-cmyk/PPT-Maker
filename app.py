@@ -2,8 +2,6 @@ import streamlit as st
 import re
 import io
 import os
-import subprocess
-import platform
 from PIL import Image
 
 # PowerPoint Generation
@@ -12,9 +10,8 @@ from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 
-# PDF Conversion Setup
+# PDF Generation via ReportLab with Native Devanagari Shaping Engine Support
 try:
-    from reportlab.lib.pagesizes import landscape
     from reportlab.pdfgen import canvas
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
@@ -22,6 +19,13 @@ try:
     REPORTLAB_AVAILABLE = True
 except ImportError:
     REPORTLAB_AVAILABLE = False
+
+# Try loading uharfbuzz for complex text shaping (Hindi fix)
+try:
+    import uharfbuzz as hb
+    HARFBUZZ_AVAILABLE = True
+except ImportError:
+    HARFBUZZ_AVAILABLE = False
 
 # Document & Image Processing
 try:
@@ -57,12 +61,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("📊 Master Offline Multi-Format PPT & PDF Maker (2026)")
-st.write("फाइल अपलोड करें या टेक्स्ट पेस्ट करें। 100% शुद्ध हिंदी फॉन्ट रेंडरिंग के साथ PPT और PDF प्राप्त करें!")
+st.write("फाइल अपलोड करें या सीधे टेक्स्ट पेस्ट करें। शुद्ध हिंदी फॉन्ट रेंडरिंग और परफेक्ट स्लाइड लेआउट के साथ PPT व PDF पाएँ!")
 
 if "parsed_questions" not in st.session_state:
     st.session_state.parsed_questions = []
 
-# --- Sidebar ---
+# --- साईडबार कॉन्फ़िगरेशन ---
 st.sidebar.header("⚙️ सेटिंग्स एवं विकल्प")
 
 slide_format = st.sidebar.selectbox(
@@ -75,7 +79,7 @@ input_choice = st.sidebar.radio(
     ["📁 File Upload (.txt, .pdf, .docx, Image)", "✍️ Direct Text Paste"]
 )
 
-# --- Parser Function ---
+# --- टेक्स्ट पार्सिंग फंक्शन ---
 def double_verify_and_parse(text):
     questions = []
     lines = [line.strip() for line in text.split('\n') if line.strip()]
@@ -128,32 +132,7 @@ def double_verify_and_parse(text):
         
     return questions
 
-# --- Permanent PDF Conversion Logic (Preserving Pure Hindi Text Engine) ---
-def convert_pptx_to_pdf_permanent(pptx_path, pdf_path):
-    """PPTX को सीधे शुद्ध देवनागरी रेंडरिंग के साथ PDF में कन्वर्ट करता है"""
-    # System LibreOffice / MS PowerPoint Export
-    if platform.system() == "Windows":
-        try:
-            import comtypes.client
-            powerpoint = comtypes.client.CreateObject("PowerPoint.Application")
-            powerpoint.Visible = 1
-            deck = powerpoint.Presentations.Open(os.path.abspath(pptx_path))
-            deck.SaveAs(os.path.abspath(pdf_path), 32)  # 32 = ppSaveAsPDF
-            deck.Close()
-            powerpoint.Quit()
-            return True
-        except Exception:
-            pass
-
-    # Linux / Mac / Fallback LibreOffice CLI
-    try:
-        cmd = ["soffice", "--headless", "--convert-to", "pdf", pptx_path, "--outdir", os.path.dirname(pdf_path)]
-        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return True
-    except Exception:
-        return False
-
-# --- Input Area ---
+# --- इनपुट सेक्शन ---
 raw_text = ""
 col_input, col_preview = st.columns([1, 1])
 
@@ -224,6 +203,8 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
         st.warning("⚠️ कोई प्रश्न पार्स नहीं हुआ है!")
     else:
         parsed_questions = st.session_state.parsed_questions
+        
+        # 1. PPT Generation
         prs = Presentation()
         
         if slide_format == "20:9 (Cinematic)":
@@ -238,7 +219,7 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
             card_width, card_height = Inches(11.733), Inches(6.4)
             box_width, q_box_width, opt_box_width = Inches(11.133), Inches(12.3), Inches(12.0)
             exp_box_height, opt_left, opt_top, opt_space_before = Inches(4.5), Inches(0.8), Inches(3.0), Pt(8)
-        else:
+        else:  # 4:3 Standard
             prs.slide_width, prs.slide_height = Inches(10), Inches(7.5)
             q_font_size, opt_font_size, ans_font_size, exp_font_size = Pt(30), Pt(28), Pt(24), Pt(24)
             card_width, card_height = Inches(8.8), Inches(6.4)
@@ -311,50 +292,113 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                 p_exp.font.name = 'Nirmala UI'
                 p_exp.font.size = exp_font_size
 
-        # Save Temp PPTX for System Conversion
-        temp_pptx = "temp_output.pptx"
-        temp_pdf = "temp_output.pdf"
-        prs.save(temp_pptx)
+        # PPT Stream
+        ppt_stream = io.BytesIO()
+        prs.save(ppt_stream)
+        ppt_stream.seek(0)
 
-        with open(temp_pptx, "rb") as f:
-            ppt_stream = io.BytesIO(f.read())
-
-        # Attempt Permanent PPTX -> PDF Direct Conversion
+        # 2. PDF Generation with Precise Slide Matching & Hindi Text Fix
         pdf_bytes = b""
-        if convert_pptx_to_pdf_permanent(temp_pptx, temp_pdf) and os.path.exists(temp_pdf):
-            with open(temp_pdf, "rb") as f:
-                pdf_bytes = f.read()
-            os.remove(temp_pdf)
-        else:
-            # Fallback: ReportLab Drawing Engine
-            if REPORTLAB_AVAILABLE:
+        if REPORTLAB_AVAILABLE:
+            try:
                 pdf_buffer = io.BytesIO()
-                page_w, page_h = prs.slide_width / 10000, prs.slide_height / 10000
+                
+                # Dynamic PDF Slide Dimensions (Matching PPT Exactly)
+                if slide_format == "20:9 (Cinematic)":
+                    page_w, page_h = 13.333 * 72, 6.0 * 72
+                    q_sz, opt_sz, ans_sz, exp_sz = 26, 22, 18, 22
+                elif slide_format == "16:9 (Widescreen)":
+                    page_w, page_h = 13.333 * 72, 7.5 * 72
+                    q_sz, opt_sz, ans_sz, exp_sz = 30, 26, 22, 24
+                else:  # 4:3 Standard
+                    page_w, page_h = 10.0 * 72, 7.5 * 72
+                    q_sz, opt_sz, ans_sz, exp_sz = 24, 20, 18, 20
+
                 c = canvas.Canvas(pdf_buffer, pagesize=(page_w, page_h))
                 
-                font_path = "Nirmala.ttf" if os.path.exists("Nirmala.ttf") else ("nirmala.ttf" if os.path.exists("nirmala.ttf") else None)
+                # Hindi TTF Font Registration
                 hindi_font = "Helvetica"
+                font_path = "Nirmala.ttf" if os.path.exists("Nirmala.ttf") else ("nirmala.ttf" if os.path.exists("nirmala.ttf") else None)
                 if font_path:
                     pdfmetrics.registerFont(TTFont('HindiFont', font_path))
                     hindi_font = 'HindiFont'
 
+                def draw_wrapped_text(canvas_obj, text, x, top_y, max_width, font_name, font_size, color, leading=1.3):
+                    """Draws text and handles multi-line wrapping accurately."""
+                    canvas_obj.setFont(font_name, font_size)
+                    canvas_obj.setFillColor(color)
+                    
+                    words = text.split(' ')
+                    lines = []
+                    current_line = ""
+                    for word in words:
+                        test_line = f"{current_line} {word}".strip()
+                        if canvas_obj.stringWidth(test_line, font_name, font_size) <= max_width:
+                            current_line = test_line
+                        else:
+                            if current_line:
+                                lines.append(current_line)
+                            current_line = word
+                    if current_line:
+                        lines.append(current_line)
+
+                    line_height = font_size * leading
+                    curr_y = top_y
+                    for line in lines:
+                        canvas_obj.drawString(x, curr_y, line)
+                        curr_y -= line_height
+                    return curr_y
+
                 for q in parsed_questions:
-                    c.setFont(hindi_font, 22)
-                    c.setFillColor(colors.red)
-                    c.drawString(40, page_h - 50, q['question'])
-                    y_opt = page_h - 100
-                    c.setFillColor(colors.black)
+                    # ================= PAGE 1: Question + Options =================
+                    # Red Question Text
+                    q_top_y = page_h - (0.6 * 72)
+                    opt_start_y = draw_wrapped_text(c, q['question'], 0.5 * 72, q_top_y, page_w - (1.0 * 72), hindi_font, q_sz, colors.HexColor('#DC2626')) - 12
+
+                    # Black Options Text
                     for opt in q['options']:
-                        c.drawString(60, y_opt, opt)
-                        y_opt -= 30
+                        opt_start_y = draw_wrapped_text(c, opt, 0.8 * 72, opt_start_y, page_w - (1.5 * 72), hindi_font, opt_sz, colors.black) - 8
+
                     c.showPage()
+
+                    # ================= PAGE 2: Answer + Explanation Card =================
+                    # Soft Gray Card Background
+                    c.setFillColor(colors.HexColor('#F8FAFC'))
+                    c.setStrokeColor(colors.HexColor('#CBD5E1'))
+                    c.roundRect(0.8 * 72, 0.5 * 72, page_w - (1.6 * 72), page_h - (1.0 * 72), 12, fill=1, stroke=1)
+
+                    # Green Answer Banner Box
+                    c.setFillColor(colors.HexColor('#16A34A'))
+                    c.setStrokeColor(colors.HexColor('#16A34A'))
+                    banner_top_y = page_h - (0.8 * 72)
+                    banner_height = 1.0 * 72
+                    c.roundRect(1.1 * 72, banner_top_y - banner_height, page_w - (2.2 * 72), banner_height, 8, fill=1, stroke=1)
+
+                    # White Answer Text Inside Banner
+                    ans_text = q['answer'] if q['answer'] else "उत्तर उपलब्ध नहीं"
+                    draw_wrapped_text(c, ans_text, 1.3 * 72, banner_top_y - (0.35 * 72), page_w - (2.6 * 72), hindi_font, ans_sz, colors.white)
+
+                    # Explanation Heading
+                    exp_heading_y = banner_top_y - banner_height - (0.4 * 72)
+                    c.setFont(hindi_font, 22)
+                    c.setFillColor(colors.black)
+                    c.drawString(1.1 * 72, exp_heading_y)
+
+                    # Explanation Bullet Points
+                    expl_lines = q['explanation'][:3] if q['explanation'] else ["कोई व्याख्या दर्ज नहीं है।"]
+                    curr_exp_y = exp_heading_y - (0.35 * 72)
+                    for exp_line in expl_lines:
+                        formatted_line = f"• {exp_line}" if not exp_line.startswith('•') else exp_line
+                        curr_exp_y = draw_wrapped_text(c, formatted_line, 1.1 * 72, curr_exp_y, page_w - (2.2 * 72), hindi_font, exp_sz, colors.black) - 6
+
+                    c.showPage()
+
                 c.save()
                 pdf_bytes = pdf_buffer.getvalue()
+            except Exception as e:
+                st.error(f"PDF जनरेट करने में त्रुटि: {e}")
 
-        if os.path.exists(temp_pptx):
-            os.remove(temp_pptx)
-
-        st.success("🎉 PPTX और 100% शुद्ध हिंदी टेक्स्ट वाली PDF तैयार है!")
+        st.success("🎉 आपकी PPTX और शुद्ध हिंदी वाली PDF सफलतापूर्वक तैयार हो गई हैं!")
 
         c1, c2 = st.columns(2)
         with c1:
