@@ -60,7 +60,7 @@ if "parsed_questions" not in st.session_state:
 st.sidebar.header("⚙️ सेटिंग्स एवं विकल्प")
 
 slide_format = st.sidebar.selectbox(
-    "PPT Slide Size चुनें:",
+    "PPT & PDF Slide Size चुनें:",
     ["16:9 (Widescreen)", "20:9 (Cinematic)", "4:3 (Standard)"]
 )
 
@@ -302,36 +302,94 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
         prs.save(ppt_stream)
         ppt_stream.seek(0)
 
-        # PDF Generation
+        # PDF Generation (Matching PPT Landscape Slide Layout, Fonts, and Theme)
         pdf_bytes = b""
         if FPDF is not None:
             try:
-                pdf = FPDF()
-                pdf.set_auto_page_break(auto=True, margin=15)
-                pdf.add_page()
+                # PPT की चुनी गई साइज़ और थीम के अनुसार PDF पैरामीटर्स
+                if slide_format == "20:9 (Cinematic)":
+                    pdf_w, pdf_h = 13.333, 6.0
+                    p_q_font, p_opt_font, p_ans_font, p_exp_font = 32, 30, 23, 30
+                    p_card_w, p_card_h = 12.333, 5.0
+                    p_box_w, p_q_box_w, p_opt_box_w = 11.733, 12.3, 12.0
+                    p_opt_l, p_opt_t = 0.9, 2.5
+                elif slide_format == "16:9 (Widescreen)":
+                    pdf_w, pdf_h = 13.333, 7.5
+                    p_q_font, p_opt_font, p_ans_font, p_exp_font = 40, 40, 28, 32
+                    p_card_w, p_card_h = 11.733, 6.4
+                    p_box_w, p_q_box_w, p_opt_box_w = 11.133, 12.3, 12.0
+                    p_opt_l, p_opt_t = 0.8, 3.0
+                else:  # 4:3 Standard
+                    pdf_w, pdf_h = 10.0, 7.5
+                    p_q_font, p_opt_font, p_ans_font, p_exp_font = 30, 28, 24, 24
+                    p_card_w, p_card_h = 8.8, 6.4
+                    p_box_w, p_q_box_w, p_opt_box_w = 8.2, 9.0, 8.8
+                    p_opt_l, p_opt_t = 0.5, 2.8
+
+                pdf = FPDF(orientation='L', unit='in', format=(pdf_w, pdf_h))
+                pdf.set_auto_page_break(auto=False)
 
                 font_path = "Nirmala.ttf" if os.path.exists("Nirmala.ttf") else ("nirmala.ttf" if os.path.exists("nirmala.ttf") else None)
+                font_name = "Helvetica"
                 if font_path:
                     pdf.add_font("Nirmala", style="", fname=font_path)
-                    pdf.set_font("Nirmala", size=11)
-                else:
-                    pdf.set_font("Helvetica", size=10)
+                    pdf.add_font("Nirmala", style="B", fname=font_path)
+                    font_name = "Nirmala"
 
-                epw = pdf.epw
-                pdf.set_font_size(14)
-                pdf.multi_cell(w=epw, h=10, text="राजस्थान मॉडल पेपर - 2026", align="C")
-                pdf.ln(5)
-                pdf.set_font_size(11)
-
-                for i, q in enumerate(parsed_questions, start=1):
-                    pdf.multi_cell(w=epw, h=7, text=f"प्र. {i}. {q['question']}")
+                for q in parsed_questions:
+                    # PDF SLIDE 1: Question + Options (Same as PPT Slide 1)
+                    pdf.add_page(orientation='L', format=(pdf_w, pdf_h))
+                    
+                    # Question Text (Red, Bold)
+                    pdf.set_font(font_name, style="B" if font_path else "B", size=p_q_font)
+                    pdf.set_text_color(255, 0, 0)
+                    pdf.set_xy(0.5, 0.4)
+                    pdf.multi_cell(w=p_q_box_w, h=p_q_font/72 * 1.3, text=q['question'], border=0, align='L')
+                    
+                    # Options Text (Black, Bold)
+                    pdf.set_font(font_name, style="B" if font_path else "B", size=p_opt_font)
+                    pdf.set_text_color(0, 0, 0)
+                    pdf.set_xy(p_opt_l, p_opt_t)
                     for opt in q['options']:
-                        pdf.multi_cell(w=epw, h=6, text=f"   {opt}")
-                    if q['answer']:
-                        pdf.multi_cell(w=epw, h=6, text=f"   {q['answer']}")
-                    for exp in q['explanation']:
-                        pdf.multi_cell(w=epw, h=6, text=f"   व्याख्या: {exp}")
-                    pdf.ln(4)
+                        pdf.set_x(p_opt_l)
+                        pdf.multi_cell(w=p_opt_box_w, h=p_opt_font/72 * 1.3, text=opt, border=0, align='L')
+                        pdf.set_y(pdf.get_y() + 0.08)
+
+                    # PDF SLIDE 2: Answer + Explanation Card (Same as PPT Slide 2)
+                    pdf.add_page(orientation='L', format=(pdf_w, pdf_h))
+
+                    # Card Background
+                    pdf.set_fill_color(248, 250, 252)
+                    pdf.set_draw_color(203, 213, 225)
+                    pdf.rounded_rect(0.8, 0.5, p_card_w, p_card_h, r=0.2, style='FD')
+
+                    # Answer Banner
+                    pdf.set_fill_color(22, 163, 74)
+                    pdf.set_draw_color(22, 163, 74)
+                    pdf.rounded_rect(1.1, 0.8, p_box_w, 1.1, r=0.15, style='F')
+
+                    # Answer Text (White, Bold)
+                    pdf.set_font(font_name, style="B" if font_path else "B", size=p_ans_font)
+                    pdf.set_text_color(255, 255, 255)
+                    pdf.set_xy(1.2, 0.95)
+                    ans_text = q['answer'] if q['answer'] else "उत्तर उपलब्ध नहीं"
+                    pdf.multi_cell(w=p_box_w - 0.2, h=p_ans_font/72 * 1.2, text=ans_text, border=0, align='L')
+
+                    # Explanation Title
+                    pdf.set_font(font_name, style="B" if font_path else "B", size=26)
+                    pdf.set_text_color(0, 0, 0)
+                    pdf.set_xy(1.1, 2.1)
+                    pdf.multi_cell(w=p_box_w, h=26/72 * 1.3, text="व्याख्या:", border=0, align='L')
+
+                    # Explanation Lines
+                    pdf.set_font(font_name, style="" if font_path else "", size=p_exp_font)
+                    expl_lines = q['explanation'][:3] if q['explanation'] else ["कोई व्याख्या दर्ज नहीं है।"]
+                    curr_y = 2.6
+                    for exp_line in expl_lines:
+                        formatted_line = f"• {exp_line}" if not exp_line.startswith('•') else exp_line
+                        pdf.set_xy(1.1, curr_y)
+                        pdf.multi_cell(w=p_box_w, h=p_exp_font/72 * 1.3, text=formatted_line, border=0, align='L')
+                        curr_y = pdf.get_y() + 0.08
 
                 pdf_bytes = bytes(pdf.output())
             except Exception as e:
