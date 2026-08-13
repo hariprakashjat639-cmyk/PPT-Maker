@@ -46,7 +46,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("📊 Master Offline Multi-Format PPT & PDF Maker")
-st.write("फाइल अपलोड करें या सीधे टेक्स्ट पेस्ट करें। 100% एरर-फ्री PPTX और सेम लेआउट की PDF तैयार करें!")
+st.write("फाइल अपलोड करें या सीधे टेक्स्ट पेस्ट करें। परफेक्ट निर्मला यूआई देवनागरी फॉन्ट के साथ PPT और PDF जनरेट करें!")
 
 if "parsed_questions" not in st.session_state:
     st.session_state.parsed_questions = []
@@ -64,19 +64,25 @@ input_choice = st.sidebar.radio(
     ["📁 File Upload Karein (.txt, .pdf, .docx, Image)", "✍️ Direct Text Paste Karein"]
 )
 
-# --- 100% सुरक्षित देवनागरी (हिंदी) फॉन्ट फिक्सर ---
+# --- केवल Latin और Devanagari (Complex Script) फॉन्ट फिक्स ---
 def set_hindi_font_safe(paragraph, font_name="Nirmala UI"):
-    """OpenXML Schema compliant तरीके से Complex Script (Devanagari) फॉन्ट सेट करना"""
+    """
+    केवल Latin और Complex Script (Devanagari) टैग सेट करेगा।
+    East Asian टैग को हटाने से चाइनीज सिंबल की समस्या पूरी तरह खत्म हो जाती है।
+    """
     paragraph.font.name = font_name
     for run in paragraph.runs:
         run.font.name = font_name
         try:
             rPr = run._r.get_or_add_rPr()
-            # python-pptx के इनबिल्ट मेथड्स जो XML का आर्डर कभी खराब नहीं करते
+            
+            # 1. Latin (English & Digits) Tag
+            latin = rPr.get_or_add_latin()
+            latin.set('typeface', font_name)
+            
+            # 2. Complex Script (Hindi / Devanagari) Tag
             cs = rPr.get_or_add_cs()
             cs.set('typeface', font_name)
-            ea = rPr.get_or_add_ea()
-            ea.set('typeface', font_name)
         except Exception:
             pass
 
@@ -213,12 +219,12 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
     if not st.session_state.parsed_questions:
         st.warning("⚠️ कोई प्रश्न पार्स नहीं हुआ है!")
     else:
-        with st.spinner("PPT और PDF जनरेट की जा रही है..."):
+        with st.spinner("आपकी PPT और PDF जनरेट की जा रही है..."):
             parsed_questions = st.session_state.parsed_questions
             
             prs = Presentation()
             
-            # --- आपके पुराने कोड वाली सटीक डायमेंशन और साइज़ ---
+            # --- आपके पुरानी फाइल वाली EXACT डायमेंशन और साइज़ ---
             if slide_format == "20:9 (Cinematic)":
                 prs.slide_width = Inches(13.333)
                 prs.slide_height = Inches(6.0)
@@ -380,7 +386,7 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                         with open(temp_pdf_path, "rb") as f:
                             pdf_bytes = f.read()
 
-        st.success("🎉 आपकी 100% वर्किंग PPTX और सेम लेआउट वाली PDF तैयार हैं!")
+        st.success("🎉 आपकी 100% वर्किंग PPTX और सेम स्टाइल वाली PDF तैयार हैं!")
 
         c1, c2 = st.columns(2)
         with c1:
