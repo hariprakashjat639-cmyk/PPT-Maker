@@ -11,6 +11,8 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
+from pptx.oxml import parse_xml
+from pptx.oxml.ns import nsdecls
 
 # Document & Image Processing
 try:
@@ -64,27 +66,26 @@ input_choice = st.sidebar.radio(
     ["📁 File Upload Karein (.txt, .pdf, .docx, Image)", "✍️ Direct Text Paste Karein"]
 )
 
-# --- केवल Latin और Devanagari (Complex Script) फॉन्ट फिक्स ---
+# --- MS PowerPoint 2007/2010 Compatible Pure XML Font Fixer ---
 def set_hindi_font_safe(paragraph, font_name="Nirmala UI"):
     """
-    केवल Latin और Complex Script (Devanagari) टैग सेट करेगा।
-    East Asian टैग को हटाने से चाइनीज सिंबल की समस्या पूरी तरह खत्म हो जाती है।
+    1. Purge existing latin, ea, cs tags to avoid XML order corruption.
+    2. Inject perfectly ordered <a:latin> and <a:cs> for Nirmala UI.
     """
-    paragraph.font.name = font_name
     for run in paragraph.runs:
-        run.font.name = font_name
-        try:
-            rPr = run._r.get_or_add_rPr()
-            
-            # 1. Latin (English & Digits) Tag
-            latin = rPr.get_or_add_latin()
-            latin.set('typeface', font_name)
-            
-            # 2. Complex Script (Hindi / Devanagari) Tag
-            cs = rPr.get_or_add_cs()
-            cs.set('typeface', font_name)
-        except Exception:
-            pass
+        rPr = run._r.get_or_add_rPr()
+        
+        # पुराने टकराने वाले सभी टैग्स हटाएँ
+        for child in list(rPr):
+            if child.tag.endswith('latin') or child.tag.endswith('ea') or child.tag.endswith('cs'):
+                rPr.remove(child)
+        
+        # साफ़ और सटीक XML टैग्स जोड़ें
+        latin_elem = parse_xml(f'<a:latin {nsdecls("a")} typeface="{font_name}"/>')
+        cs_elem = parse_xml(f'<a:cs {nsdecls("a")} typeface="{font_name}"/>')
+        
+        rPr.append(latin_elem)
+        rPr.append(cs_elem)
 
 # --- टेक्स्ट पार्सिंग फंक्शन ---
 def double_verify_and_parse(text):
@@ -289,11 +290,11 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                 tf1.word_wrap = True
                 p1 = tf1.paragraphs[0]
                 p1.text = q['question']
-                set_hindi_font_safe(p1, 'Nirmala UI')
                 p1.font.size = q_font_size
                 p1.font.bold = True
                 p1.font.color.rgb = RGBColor(255, 0, 0)
                 p1.line_spacing = 1.3
+                set_hindi_font_safe(p1, 'Nirmala UI')
 
                 opt_box = slide1.shapes.add_textbox(opt_left, opt_top, opt_box_width, Inches(4.3))
                 tf_opt = opt_box.text_frame
@@ -308,11 +309,11 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                         p.space_before = opt_space_before
                     
                     p.text = opt
-                    set_hindi_font_safe(p, 'Nirmala UI')
                     p.font.size = opt_font_size
                     p.font.bold = True
                     p.font.color.rgb = RGBColor(0, 0, 0)
                     p.line_spacing = 1.4
+                    set_hindi_font_safe(p, 'Nirmala UI')
 
                 # ==========================================
                 # SLIDE 2: Answer + Explanation
@@ -340,10 +341,10 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                 tf_ans.word_wrap = True
                 p_ans = tf_ans.paragraphs[0]
                 p_ans.text = q['answer'] if q['answer'] else "उत्तर: (सही विकल्प का नाम)"
-                set_hindi_font_safe(p_ans, 'Nirmala UI')
                 p_ans.font.size = ans_font_size
                 p_ans.font.bold = True
                 p_ans.font.color.rgb = RGBColor(255, 255, 255)
+                set_hindi_font_safe(p_ans, 'Nirmala UI')
 
                 exp_box = slide2.shapes.add_textbox(Inches(1.1), Inches(2.1), box_width, exp_box_height)
                 tf_exp = exp_box.text_frame
@@ -351,10 +352,10 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
 
                 p_exp_title = tf_exp.paragraphs[0]
                 p_exp_title.text = "व्याख्या:"
-                set_hindi_font_safe(p_exp_title, 'Nirmala UI')
                 p_exp_title.font.size = Pt(26)
                 p_exp_title.font.bold = True
                 p_exp_title.font.color.rgb = RGBColor(30, 41, 59)
+                set_hindi_font_safe(p_exp_title, 'Nirmala UI')
 
                 expl_lines = q['explanation'][:3] if q['explanation'] else ["महत्वपूर्ण व्याख्या बिंदु यहाँ आएंगे।"]
 
@@ -364,9 +365,9 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                     p_exp.line_spacing = 1.25
                     
                     p_exp.text = f"• {exp_line}" if not exp_line.startswith('•') else exp_line
-                    set_hindi_font_safe(p_exp, 'Nirmala UI')
                     p_exp.font.size = exp_font_size
                     p_exp.font.color.rgb = RGBColor(0, 0, 0)
+                    set_hindi_font_safe(p_exp, 'Nirmala UI')
 
             # Save PPT Stream
             ppt_stream = io.BytesIO()
