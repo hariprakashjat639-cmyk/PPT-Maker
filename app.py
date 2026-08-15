@@ -37,13 +37,15 @@ st.set_page_config(
     layout="wide"
 )
 
+# --- CSS अपडेट: साइडबार बटन को चालू रखा गया है ---
 st.markdown("""
     <style>
-    [data-testid="stHeader"] {display: none;}
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     .viewerBadge {display: none !important;}
-    header {visibility: hidden;}
+    header[data-testid="stHeader"] {
+        background: transparent !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
