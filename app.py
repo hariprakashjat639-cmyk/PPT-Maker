@@ -259,7 +259,7 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                 opt_box_width = Inches(12.0)
                 exp_box_height = Inches(4.5)
                 opt_left = Inches(0.8)
-                opt_top = Inches(3.0)
+                opt_top = Inches(2.5)
                 opt_space_before = Pt(7)
 
             else:  # 4:3 (Standard)
