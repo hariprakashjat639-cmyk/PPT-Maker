@@ -3,4 +3,3 @@ tesseract-ocr-eng
 tesseract-ocr-hin
 libreoffice
 fonts-deva
-fonts-noto-extra
