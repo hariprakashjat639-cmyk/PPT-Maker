@@ -248,8 +248,8 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
             elif slide_format == "16:9 (Widescreen)":
                 prs.slide_width = Inches(13.333)
                 prs.slide_height = Inches(7.5)
-                q_font_size = Pt(40)
-                opt_font_size = Pt(40)
+                q_font_size = Pt(36)
+                opt_font_size = Pt(36)
                 ans_font_size = Pt(28)
                 exp_font_size = Pt(32)
                 card_width = Inches(11.733)
@@ -260,7 +260,7 @@ if st.button("🚀 Master PPT & PDF जनरेट करें", type="primary
                 exp_box_height = Inches(4.5)
                 opt_left = Inches(0.8)
                 opt_top = Inches(3.0)
-                opt_space_before = Pt(8)
+                opt_space_before = Pt(7)
 
             else:  # 4:3 (Standard)
                 prs.slide_width = Inches(10)
